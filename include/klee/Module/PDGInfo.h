@@ -10,10 +10,7 @@
 #ifndef KLEE_PDGINFO_H
 #define KLEE_PDGINFO_H
 
-#include "llvm/ADT/Twine.h"
 #include "llvm/IR/Function.h"
-#include "llvm/IR/InlineAsm.h"
-#include "llvm/IR/LLVMContext.h"
 #include <vector>
 
 namespace klee {

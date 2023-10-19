@@ -22,7 +22,6 @@ DISABLE_WARNING_DEPRECATED_DECLARATIONS
 #include "llvm/IR/Module.h"
 #include "llvm/Pass.h"
 #include "llvm/Analysis/LoopInfo.h"
-#include <vector>
 #include <map>
 DISABLE_WARNING_POP
 

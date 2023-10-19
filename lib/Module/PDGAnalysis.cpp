@@ -17,10 +17,6 @@
 
 using namespace llvm;
 
-char klee::PDGAnalysis::ID = 0;
-std::multimap<Function *, Loop *> klee::PDGAnalysis::func_loop_map{};
-std::map<Loop *, klee::PDG_LoopInfo> klee::PDGAnalysis::loopinfo_map{};
-
 bool klee::PDGAnalysis::runOnFunction(Function &f) {
   if (f.getName() != "zsy_test")
     return false;
@@ -57,5 +53,8 @@ void klee::PDGAnalysis::getAnalysisUsage(AnalysisUsage &AU) const {
 
   AU.addRequired<DominatorTreeWrapperPass>();
   AU.addPreserved<DominatorTreeWrapperPass>();
-
 }
+
+char klee::PDGAnalysis::ID = 0;
+std::multimap<Function *, Loop *> klee::PDGAnalysis::func_loop_map{};
+std::map<Loop *, klee::PDG_LoopInfo> klee::PDGAnalysis::loopinfo_map{};
