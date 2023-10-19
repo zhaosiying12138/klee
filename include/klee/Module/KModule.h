@@ -73,6 +73,7 @@ namespace klee {
     static bool classof(const KCallable *callable) {
       return callable->getKind() == CK_Function;
     }
+    std::string zsy_str;
   };
 
 

@@ -96,6 +96,18 @@ public:
   bool runOnFunction(llvm::Function &f) override;
 };
 
+class PDGAnalysis : public llvm::FunctionPass {
+  static char ID;
+  static std::string analysisInfo;
+
+public:
+  PDGAnalysis() : llvm::FunctionPass(ID) {}
+
+  bool runOnFunction(llvm::Function &f) override;
+
+  static std::string getAnalysisInfo();
+};
+
 class DivCheckPass : public llvm::ModulePass {
   static char ID;
 

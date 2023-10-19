@@ -282,6 +282,7 @@ void KModule::optimiseAndPrepare(
   pm3.add(createScalarizerPass());
   pm3.add(new PhiCleanerPass());
   pm3.add(new FunctionAliasPass());
+  pm3.add(new PDGAnalysis());
   pm3.run(*module);
 }
 
@@ -310,6 +311,7 @@ void KModule::manifest(InterpreterHandler *ih, bool forceSourceOutput) {
     }
 
     auto kf = std::unique_ptr<KFunction>(new KFunction(&Function, this));
+    kf->zsy_str = PDGAnalysis::getAnalysisInfo();
 
     for (unsigned i=0; i<kf->numInstructions; ++i) {
       KInstruction *ki = kf->instructions[i];

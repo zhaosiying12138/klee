@@ -2208,6 +2208,9 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
       assert(bi->getCondition() == bi->getOperand(0) &&
              "Wrong operand index!");
       ref<Expr> cond = eval(ki, 0, state).value;
+      KFunction *kf = kmodule->functionMap[bi->getParent()->getParent()];
+      llvm::outs() << "[ZSY] Function Name: " << kf->zsy_str << "\n";
+      llvm::outs() << "[ZSY] I met the conditional branch(" << cond->isTrue() << ")!\n";
 
       cond = optimizer.optimizeExpr(cond, false);
       Executor::StatePair branches = fork(state, cond, false, BranchType::Conditional);
