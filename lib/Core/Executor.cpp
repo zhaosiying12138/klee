@@ -2102,6 +2102,32 @@ Function *Executor::getTargetFunction(Value *calledVal) {
 
 void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
   Instruction *i = ki->inst;
+  Function *f = i->getParent()->getParent();
+
+  if (f->getName() == "zsy_test") {
+    outs() << "\n[ZSY_Executor] call zsy_test()\n";
+    KFunction *kf = kmodule->functionMap[i->getParent()->getParent()];
+    auto loop_it = kf->func_loop_map.equal_range(f);
+    for (auto it = loop_it.first; it != loop_it.second; ++it) {
+      PDG_LoopInfo info = kf->loopinfo_map[it->second];
+      outs() << "Loop Preheader: " << info.preheader->getNameOrAsOperand() << "\n";
+      outs() << "Loop Header: " << info.header->getNameOrAsOperand() << "\n";
+      outs() << "Loop Latch: " << info.latch->getNameOrAsOperand() << "\n";
+      outs() << "Loop Exit: " << info.exit->getNameOrAsOperand() << "\n";
+
+      outs() << "Loop body: ";
+      for (auto body : info.bodies) {
+        outs() << body->getNameOrAsOperand() << ", ";
+      }
+      outs() << "\n";
+
+      // lp->dump();
+
+      assert(0);
+    }
+
+  }
+
   switch (i->getOpcode()) {
     // Control flow
   case Instruction::Ret: {

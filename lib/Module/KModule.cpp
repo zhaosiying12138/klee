@@ -18,6 +18,7 @@
 #include "klee/Module/InstructionInfoTable.h"
 #include "klee/Module/KInstruction.h"
 #include "klee/Module/KModule.h"
+#include "klee/Module/KCallable.h"
 #include "klee/Support/Debug.h"
 #include "klee/Support/ErrorHandling.h"
 #include "klee/Support/ModuleUtil.h"
@@ -311,7 +312,8 @@ void KModule::manifest(InterpreterHandler *ih, bool forceSourceOutput) {
     }
 
     auto kf = std::unique_ptr<KFunction>(new KFunction(&Function, this));
-    kf->zsy_str = PDGAnalysis::getAnalysisInfo();
+    kf->func_loop_map = std::move(PDGAnalysis::func_loop_map);
+    kf->loopinfo_map = std::move(PDGAnalysis::loopinfo_map);
 
     for (unsigned i=0; i<kf->numInstructions; ++i) {
       KInstruction *ki = kf->instructions[i];

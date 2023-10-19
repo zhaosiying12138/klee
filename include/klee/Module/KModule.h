@@ -13,8 +13,10 @@
 #include "klee/Config/Version.h"
 #include "klee/Core/Interpreter.h"
 #include "klee/Module/KCallable.h"
+#include "klee/Module/PDGInfo.h"
 
 #include "llvm/ADT/ArrayRef.h"
+#include "llvm/Analysis/LoopInfo.h"
 
 #include <map>
 #include <memory>
@@ -73,7 +75,8 @@ namespace klee {
     static bool classof(const KCallable *callable) {
       return callable->getKind() == CK_Function;
     }
-    std::string zsy_str;
+    std::multimap<llvm::Function *, llvm::Loop *> func_loop_map;
+    std::map<llvm::Loop *, PDG_LoopInfo> loopinfo_map;
   };
 
 

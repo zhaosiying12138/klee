@@ -11,7 +11,7 @@
 #define KLEE_PASSES_H
 
 #include "klee/Config/Version.h"
-
+#include "klee/Module/PDGInfo.h"
 #include "klee/Support/CompilerWarning.h"
 DISABLE_WARNING_PUSH
 DISABLE_WARNING_DEPRECATED_DECLARATIONS
@@ -21,6 +21,9 @@ DISABLE_WARNING_DEPRECATED_DECLARATIONS
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Pass.h"
+#include "llvm/Analysis/LoopInfo.h"
+#include <vector>
+#include <map>
 DISABLE_WARNING_POP
 
 namespace llvm {
@@ -96,9 +99,9 @@ public:
   bool runOnFunction(llvm::Function &f) override;
 };
 
+
 class PDGAnalysis : public llvm::FunctionPass {
   static char ID;
-  static std::string analysisInfo;
 
 public:
   PDGAnalysis() : llvm::FunctionPass(ID) {}
@@ -106,7 +109,8 @@ public:
   bool runOnFunction(llvm::Function &f) override;
   void getAnalysisUsage(llvm::AnalysisUsage &AU) const override;
 
-  static std::string getAnalysisInfo();
+  static std::multimap<llvm::Function *, llvm::Loop *> func_loop_map;
+  static std::map<llvm::Loop *, PDG_LoopInfo> loopinfo_map;
 };
 
 class DivCheckPass : public llvm::ModulePass {
