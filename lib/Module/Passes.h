@@ -104,6 +104,7 @@ public:
   PDGAnalysis() : llvm::FunctionPass(ID) {}
 
   bool runOnFunction(llvm::Function &f) override;
+  void getAnalysisUsage(llvm::AnalysisUsage &AU) const override;
 
   static std::string getAnalysisInfo();
 };
