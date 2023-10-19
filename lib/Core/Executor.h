@@ -209,12 +209,16 @@ private:
   /// Typeids used during exception handling
   std::vector<ref<Expr>> eh_typeids;
 
+  int pdg_status;
+
   /// Return the typeid corresponding to a certain `type_info`
   ref<ConstantExpr> getEhTypeidFor(ref<Expr> type_info);
 
   llvm::Function* getTargetFunction(llvm::Value *calledVal);
   
   void executeInstruction(ExecutionState &state, KInstruction *ki);
+
+  void pdg_executeInstruction(ExecutionState &state, KInstruction *ki);
 
   void run(ExecutionState &initialState);
 
