@@ -3358,25 +3358,48 @@ void Executor::pdg_executeInstruction(ExecutionState &state, KInstruction *ki) {
     KFunction *kf = kmodule->functionMap[i->getParent()->getParent()];
     auto loop_it = kf->func_loop_map.equal_range(f);
     for (auto it = loop_it.first; it != loop_it.second; ++it) {
-      PDG_LoopInfo info = kf->loopinfo_map[it->second];
-      outs() << "Loop Preheader: " << info.preheader->getNameOrAsOperand() << "\n";
-      outs() << "Loop Header: " << info.header->getNameOrAsOperand() << "\n";
-      outs() << "Loop Latch: " << info.latch->getNameOrAsOperand() << "\n";
-      outs() << "Loop Exit: " << info.exit->getNameOrAsOperand() << "\n";
+      pdg_loopinfo = kf->loopinfo_map[it->second];
+      std::queue<BasicBlock *>().swap(pdg_worklist); // ZSY_HACK: the same as pdg_worklist.clear()
+      outs() << "Loop Preheader: " << pdg_loopinfo.preheader->getNameOrAsOperand() << "\n";
+      outs() << "Loop Header: " << pdg_loopinfo.header->getNameOrAsOperand() << "\n";
+      outs() << "Loop Latch: " << pdg_loopinfo.latch->getNameOrAsOperand() << "\n";
+      outs() << "Loop Exit: " << pdg_loopinfo.exit->getNameOrAsOperand() << "\n";
 
       outs() << "Loop body: ";
-      for (auto body : info.bodies) {
+      for (auto body : pdg_loopinfo.bodies) {
+        pdg_worklist.push(body);
         outs() << body->getNameOrAsOperand() << ", ";
       }
       outs() << "\n";
 
-    }
+      pdg_basicblock_to_exec = pdg_worklist.front();
+      pdg_worklist.pop();
 
+      transferToBasicBlock(pdg_loopinfo.header, pdg_loopinfo.preheader, state);
+
+      return;
+    }
+  } else if (pdg_status == 2) {
+      i->dump();
+      if (i->getParent() == pdg_loopinfo.exit) {
+        outs() << "[ZSY_Executor] loop [EXIT]!\n";
+        if (!pdg_worklist.empty()) {
+          pdg_basicblock_to_exec = pdg_worklist.front();
+          pdg_worklist.pop();
+          transferToBasicBlock(pdg_loopinfo.header, pdg_loopinfo.preheader, state);
+          return;
+        } else {
+          pdg_status = 3;
+        }
+      }
   }
 
   switch (i->getOpcode()) {
     // Control flow
   case Instruction::Ret: {
+    if (pdg_status == 3) {
+      pdg_status = 0;
+    }
     ReturnInst *ri = cast<ReturnInst>(i);
     KInstIterator kcaller = state.stack.back().caller;
     Instruction *caller = kcaller ? kcaller->inst : nullptr;
@@ -3472,6 +3495,44 @@ void Executor::pdg_executeInstruction(ExecutionState &state, KInstruction *ki) {
     break;
   }
   case Instruction::Br: {
+    if (pdg_status == 2) {
+      if (i->getParent() == pdg_loopinfo.header) {
+        outs() << "[ZSY_Executor] loop header ended!\n";
+        BranchInst *bi = cast<BranchInst>(i);
+        assert(bi->isConditional());
+        ref<Expr> cond = eval(ki, 0, state).value;
+        cond = optimizer.optimizeExpr(cond, false);
+        BasicBlock *successors[2];
+        successors[0] = bi->getSuccessor(0);
+        successors[1] = bi->getSuccessor(1);
+        if (successors[0] == pdg_loopinfo.exit) {
+          successors[1] = pdg_basicblock_to_exec;
+        } else if (successors[1] == pdg_loopinfo.exit) {
+          successors[0] = pdg_basicblock_to_exec;
+        } else {
+          assert(0);
+        }
+        if (cond->isTrue()) {
+          transferToBasicBlock(successors[0], bi->getParent(), state);
+        } else {
+          assert(cond->isFalse());
+          transferToBasicBlock(successors[1], bi->getParent(), state);
+        }
+
+        return;
+      } else if (i->getParent() == pdg_basicblock_to_exec) {
+        outs() << "[ZSY_Executor] loop body ended!\n";
+        transferToBasicBlock(pdg_loopinfo.latch, pdg_basicblock_to_exec, state);
+        return;
+      } else if (i->getParent() == pdg_loopinfo.latch) {
+        outs() << "[ZSY_Executor] loop latch ended!\n";
+        transferToBasicBlock(pdg_loopinfo.header, pdg_loopinfo.latch, state);
+        return;
+      } else {
+        assert(0);
+      }
+    }
+
     BranchInst *bi = cast<BranchInst>(i);
     if (bi->isUnconditional()) {
       transferToBasicBlock(bi->getSuccessor(0), bi->getParent(), state);

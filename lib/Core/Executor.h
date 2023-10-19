@@ -27,6 +27,7 @@
 #include "klee/Module/Cell.h"
 #include "klee/Module/KInstruction.h"
 #include "klee/Module/KModule.h"
+#include "klee/Module/PDGInfo.h"
 #include "klee/System/Time.h"
 
 #include "llvm/ADT/Twine.h"
@@ -38,6 +39,7 @@
 #include <string>
 #include <unordered_map>
 #include <vector>
+#include <queue>
 
 struct KTest;
 
@@ -210,6 +212,9 @@ private:
   std::vector<ref<Expr>> eh_typeids;
 
   int pdg_status;
+  PDG_LoopInfo pdg_loopinfo;
+  std::queue<llvm::BasicBlock *> pdg_worklist;
+  llvm::BasicBlock *pdg_basicblock_to_exec;
 
   /// Return the typeid corresponding to a certain `type_info`
   ref<ConstantExpr> getEhTypeidFor(ref<Expr> type_info);
