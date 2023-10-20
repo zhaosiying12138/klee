@@ -86,7 +86,11 @@ namespace klee {
   class MergingSearcher;
   template<class T> class ref;
 
-
+  enum class ExternalCallPolicy {
+    None,     // No external calls allowed
+    Concrete, // Only external calls with concrete arguments allowed
+    All,      // All external calls allowed
+  };
 
   /// \todo Add a context object to keep track of data only live
   /// during an instruction step. Should contain addedStates,
@@ -215,6 +219,7 @@ private:
   PDG_LoopInfo pdg_loopinfo;
   std::queue<llvm::BasicBlock *> pdg_worklist;
   llvm::BasicBlock *pdg_basicblock_to_exec;
+  int pdg_iter_cnt;
 
   /// Return the typeid corresponding to a certain `type_info`
   ref<ConstantExpr> getEhTypeidFor(ref<Expr> type_info);
@@ -584,6 +589,19 @@ public:
   MergingSearcher *getMergingSearcher() const { return mergingSearcher; };
   void setMergingSearcher(MergingSearcher *ms) { mergingSearcher = ms; };
 };
+
+  static inline const llvm::fltSemantics *fpWidthToSemantics(unsigned width) {
+    switch (width) {
+    case Expr::Int32:
+      return &llvm::APFloat::IEEEsingle();
+    case Expr::Int64:
+      return &llvm::APFloat::IEEEdouble();
+    case Expr::Fl80:
+      return &llvm::APFloat::x87DoubleExtended();
+    default:
+      return 0;
+    }
+  }
   
 } // End klee namespace
 

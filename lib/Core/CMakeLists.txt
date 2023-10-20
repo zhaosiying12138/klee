@@ -19,6 +19,7 @@ add_library(kleeCore
   ImpliedValue.cpp
   Memory.cpp
   MemoryManager.cpp
+  PDGExecutor.cpp
   PTree.cpp
   Searcher.cpp
   SeedInfo.cpp
