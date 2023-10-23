@@ -21,6 +21,11 @@ namespace klee {
     llvm::BasicBlock *exit;
     std::vector<llvm::BasicBlock *> bodies{};
   };
+
+  struct CDGNode {
+    llvm::BasicBlock *bb;
+    int flag;
+  };
 }
 
 #endif /* KLEE_PDGINFO_H */

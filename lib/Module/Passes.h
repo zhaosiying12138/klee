@@ -18,11 +18,13 @@ DISABLE_WARNING_DEPRECATED_DECLARATIONS
 #include "llvm/ADT/Triple.h"
 #include "llvm/CodeGen/IntrinsicLowering.h"
 #include "llvm/IR/Constants.h"
+#include "llvm/IR/Dominators.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Pass.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include <map>
+#include <list>
 DISABLE_WARNING_POP
 
 namespace llvm {
@@ -100,7 +102,9 @@ public:
 
 
 class PDGAnalysis : public llvm::FunctionPass {
+private:
   static char ID;
+  static void po_visit_pdt_node(llvm::DomTreeNode *dtnode, std::list<llvm::DomTreeNode *> &l);
 
 public:
   PDGAnalysis() : llvm::FunctionPass(ID) {}

@@ -7,8 +7,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#define DEBUG_TYPE "KModule"
-
 #include "Passes.h"
 
 #include "klee/Config/Version.h"
@@ -47,6 +45,8 @@ DISABLE_WARNING_DEPRECATED_DECLARATIONS
 DISABLE_WARNING_POP
 
 #include <sstream>
+
+#define DEBUG_TYPE "KModule"
 
 using namespace llvm;
 using namespace klee;
