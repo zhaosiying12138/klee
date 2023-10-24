@@ -21,6 +21,7 @@ set(KLEE_MODULE_COMPONENT_SRCS
   PhiCleaner.cpp
   RaiseAsm.cpp
   PDGAnalysis.cpp
+  Tarjan_SCC.cpp
 )
 
 add_library(kleeModule

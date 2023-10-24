@@ -8,6 +8,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "Passes.h"
+#include "Tarjan_SCC.h"
 
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/IR/CFG.h"
@@ -33,7 +34,6 @@ bool klee::PDGAnalysis::runOnFunction(Function &f) {
   outs() << "[ZSY_PDGAnalysis] PDGAnalysis Pass run!\n";
   LoopInfo &LI = getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
   PostDominatorTree &PDT = getAnalysis<PostDominatorTreeWrapperPass>().getPostDomTree();
-  PDT.print(outs());
 
   for (Loop *LP : LI) {
     assert(LP->getLoopDepth() == 1);
@@ -50,6 +50,7 @@ bool klee::PDGAnalysis::runOnFunction(Function &f) {
     info.bodies = std::move(loop_body);
     loopinfo_map.insert({LP, info});
 
+    outs() << "\nLoopInfo Result:\n";
     outs() << "Loop Preheader: " << info.preheader->getNameOrAsOperand() << "\n";
     outs() << "Loop Header: " << info.header->getNameOrAsOperand() << "\n";
     outs() << "Loop Latch: " << info.latch->getNameOrAsOperand() << "\n";
@@ -72,6 +73,7 @@ bool klee::PDGAnalysis::runOnFunction(Function &f) {
       return true;
     });
 
+    outs() << "\nStart to Calculate Control Dependence Graph:\n";
     std::multimap<BasicBlock *, klee::CDGNode> cdginfo_map{};
 
     for (DomTreeNode *x_dtnode : construct_cd_working_list) {
@@ -130,6 +132,38 @@ bool klee::PDGAnalysis::runOnFunction(Function &f) {
       }
       outs() << "\n";
     }
+
+    outs() << "\nTarjan-SCC Result:\n";
+    klee::Tarjan_SCC tarjan{7};
+    tarjan.add_edge(1, 2);
+    tarjan.add_edge(1, 3);
+    tarjan.add_edge(2, 4);
+    tarjan.add_edge(3, 4);
+    tarjan.add_edge(3, 5);
+    tarjan.add_edge(4, 1);
+    tarjan.add_edge(4, 6);
+    tarjan.add_edge(5, 6);
+    auto sccs = tarjan.compute_scc();
+    {
+      int i = 0;
+      for (auto scc : sccs) {
+        outs() << "SCC(" << i++ << "): [";
+        for (int u : scc) {
+          outs() << u << ", ";
+        }
+        outs() << "], ";
+      }
+    }
+    outs() << "\n";
+    int *scc_edges_view = tarjan.get_SCC_edges_view();
+    for (std::size_t i = 0; i != sccs.size(); i++) {
+      for (std::size_t j = 0; j != sccs.size(); j++) {
+        if (scc_edges_view[i * sccs.size() + j]) {
+          outs() << "SCC(" << i << ") -> SCC(" << j << "), ";
+        }
+      }
+    }
+    outs() << "\n";
   }
   assert(0);
 
@@ -143,12 +177,8 @@ bool klee::PDGAnalysis::runOnFunction(Function &f) {
 void klee::PDGAnalysis::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addRequired<LoopInfoWrapperPass>();
   AU.addPreserved<LoopInfoWrapperPass>();
-
-  // AU.addRequired<DominatorTreeWrapperPass>();
-  // AU.addPreserved<DominatorTreeWrapperPass>();
   AU.addRequired<PostDominatorTreeWrapperPass>();
   AU.addPreserved<PostDominatorTreeWrapperPass>();
-
 }
 
 char klee::PDGAnalysis::ID = 0;
