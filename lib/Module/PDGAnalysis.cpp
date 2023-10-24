@@ -1,4 +1,4 @@
-//===-- PhiCleaner.cpp ----------------------------------------------------===//
+//===-- PDGAnalysis.cpp ----------------------------------------------------===//
 //
 //                     The KLEE Symbolic Virtual Machine
 //
@@ -101,6 +101,7 @@ bool klee::PDGAnalysis::runOnFunction(Function &f) {
       // Case 2:
       outs() << "Case 2:\n";
       for (DomTreeNode *z_dtnode : x_dtnode->children()) {
+        std::multimap<BasicBlock *, klee::CDGNode> tmp_cdginfo_map{};
         BasicBlock *z_bb = z_dtnode->getBlock();
         auto cdg_multimap_it = cdginfo_map.equal_range(z_bb);
         for (auto it = cdg_multimap_it.first; it != cdg_multimap_it.second; ++it) {
@@ -108,25 +109,27 @@ bool klee::PDGAnalysis::runOnFunction(Function &f) {
           BasicBlock *y_bb = tmp_cdgNode.bb;
           int y_bb_flag = tmp_cdgNode.flag;
           if (PDT.getNode(y_bb)->getIDom() != x_dtnode) {
-            cdginfo_map.insert({x_bb, tmp_cdgNode});
+            // cdginfo_map.insert({x_bb, tmp_cdgNode}); // BUG! Cannot insert at the same time as iteration
+            tmp_cdginfo_map.insert({x_bb, tmp_cdgNode});
             outs() << "\tadd " << y_bb->getNameOrAsOperand() << "-" << (y_bb_flag ? "T" : "F")
               <<" to CD(" << x_bb->getNameOrAsOperand() << ")\n";
           }
         }
+        cdginfo_map.insert(tmp_cdginfo_map.begin(), tmp_cdginfo_map.end());
       }
       outs() << "=================\n";
     }
-    // while (!construct_cd_working_list.empty()) {
-    //   DomTreeNode *tmp_dtnode = construct_cd_working_list.front();
-    //   construct_cd_working_list.pop();
-    //   if (tmp_dtnode->getBlock() == info.header ||
-    //       std::find(loop_body.begin(), loop_body.end(), tmp_dtnode->getBlock()) != loop_body.end()) {
-    //     outs() << tmp_dtnode->getBlock()->getNameOrAsOperand() << ", ";
 
-    //   }
-    // }
-    outs() << "\n";
-
+    outs() << "\nCDG Result:\n";
+    for (BasicBlock *bb : info.bodies) {
+      outs() << bb->getNameOrAsOperand() << ":\t";
+      auto cdg_multimap_it = cdginfo_map.equal_range(bb);
+      for (auto it = cdg_multimap_it.first; it != cdg_multimap_it.second; ++it) {
+        CDGNode tmp_cdgNode = it->second;
+        outs() << tmp_cdgNode.bb->getNameOrAsOperand() << "-" << (tmp_cdgNode.flag ? "T" : "F") << ", ";
+      }
+      outs() << "\n";
+    }
   }
   assert(0);
 
