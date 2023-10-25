@@ -9,8 +9,10 @@
 
 #include "Tarjan_SCC.h"
 #include "llvm/Support/raw_ostream.h"
+#include <vector>
 #include <algorithm>
 #include <cassert>
+#include <memory>
 
 using namespace klee;
 
@@ -53,6 +55,14 @@ std::vector<std::vector<int>> Tarjan_SCC::compute_scc()
             }
         }
     }
+
+    state_SCC_toposort = new int[SCC_size]();
+    for (int i = 0; i < SCC_size; i++) {
+        if (state_SCC_toposort[i] == 0) {
+            dfs_SCC(i);
+        }
+    }
+    std::reverse(result_toposort_SCC.begin(), result_toposort_SCC.end());
     return result;
 }
 
@@ -89,4 +99,26 @@ void Tarjan_SCC::tarjan(int u)
 int *Tarjan_SCC::get_SCC_edges_view()
 {
     return SCC_edges;
+}
+
+void Tarjan_SCC::dfs_SCC(int u)
+{
+    // llvm::outs() << "Toposort: search " << u << "\n";
+    state_SCC_toposort[u] = 1;
+    for (int v = 0; v < SCC_size; v++) {
+        if (SCC_edges[u * SCC_size + v] == 0)
+            continue;
+        assert(state_SCC_toposort[v] != 1); // Otherwise find cycle!
+        if (state_SCC_toposort[v] == 2)
+            continue;
+        dfs_SCC(v);
+    }
+    // llvm::outs() << "Toposort: push " << u << "\n";
+    result_toposort_SCC.push_back(u);
+    state_SCC_toposort[u] = 2;
+}
+
+std::vector<int> Tarjan_SCC::get_SCC_toposort()
+{
+    return result_toposort_SCC;
 }

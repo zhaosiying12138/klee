@@ -31,6 +31,7 @@ public:
         delete[] on_stack;
         delete[] BELONG;
         delete[] SCC_edges;
+        delete[] state_SCC_toposort;
     }
 
     Tarjan_SCC(const Tarjan_SCC &) = delete;
@@ -39,10 +40,10 @@ public:
     Tarjan_SCC& operator=(Tarjan_SCC &&) = delete;
 
     void add_edge(int i, int j);
-    std::vector<int> find_adjacent_nodes(int i);
     std::vector<std::vector<int>> compute_scc();
     // lifetime of the return array is the same as the tarjan object, be careful when using it!
     int *get_SCC_edges_view();
+    std::vector<int> get_SCC_toposort();
 
 private:
     int size;
@@ -56,7 +57,13 @@ private:
     int *BELONG;
     std::vector<std::vector<int>> result{};
     int *SCC_edges;
+    // 0: Unsearched; 1: Searching; 2: Done
+    int *state_SCC_toposort;
+    std::vector<int> result_toposort_SCC{};
+
+    std::vector<int> find_adjacent_nodes(int i);
     void tarjan(int i);
+    void dfs_SCC(int i);
 };
 }
 

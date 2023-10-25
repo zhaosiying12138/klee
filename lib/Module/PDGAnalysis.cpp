@@ -162,12 +162,37 @@ bool klee::PDGAnalysis::runOnFunction(Function &f) {
       assert(it_u != bb_name_id_map.end() && it_v != bb_name_id_map.end());
       tarjan.add_edge(it_u->second, it_v->second);
     };
-    add_edge("S4", "S5");
-    add_edge("S5", "S4");
-    add_edge("S4", "S6");
-    add_edge("S6", "S4");
-    add_edge("S7", "S8");
-    // [S7,] -> [S8,], [S4,S6,S5,] -> [S7,], [S2,] -> [S3,], [S2,] -> [S4,S6,S5,], [S1,] -> [S3,], [S1,] -> [S2,], [%4,] -> [S8,], [%4,] -> [S1,]
+    {
+      // dump output directly from isl_autovec: https://github.com/zhaosiying12138/isl
+      add_edge("S5", "S5");
+      add_edge("S5", "S4");
+      add_edge("S5", "S6");
+      add_edge("S5", "S7");
+      add_edge("S3", "S5");
+      add_edge("S3", "S4");
+      add_edge("S3", "S6");
+      add_edge("S3", "S7");
+      add_edge("S4", "S5");
+      add_edge("S4", "S6");
+      add_edge("S1", "S3");
+      add_edge("S6", "S5");
+      add_edge("S6", "S4");
+      add_edge("S6", "S6");
+      add_edge("S6", "S7");
+      add_edge("S2", "S3");
+      add_edge("S2", "S7");
+      add_edge("S7", "S8");
+      // Expect Result: [%4] -> [S1] -> [S2] -> [S3] -> [S4,S6,S5] -> [S7] -> [S8]
+    }
+    {
+      // P421 Result, some data dependence missing! Bug!
+      // Get Wrong Result: [%4] -> [S1] -> [S2] -> [S4,S6,S5] -> [S7] -> [S8] -> [S3]
+      // add_edge("S4", "S5");
+      // add_edge("S5", "S4");
+      // add_edge("S4", "S6");
+      // add_edge("S6", "S4");
+      // add_edge("S7", "S8");
+    }
 
     outs() << "\nTarjan-SCC Result:\n";
     outs() << "BasicBlock-ID-Mapping: ";
@@ -188,6 +213,16 @@ bool klee::PDGAnalysis::runOnFunction(Function &f) {
       }
     }
     outs() << "\n";
+    // SCC Edges:
+    // [S7] -> [S8]
+    // [S4,S6,S5] -> [S7]
+    // [S2] -> [S3]
+    // [S2] -> [S4,S6,S5]
+    // [S1] -> [S3]
+    // [S1] -> [S2]
+    // [%4] -> [S8]
+    // [%4] -> [S1]
+
     int *scc_edges_view = tarjan.get_SCC_edges_view();
     auto print_scc = [&info] (std::vector<int> scc) {
       assert(!scc.empty());
@@ -200,7 +235,8 @@ bool klee::PDGAnalysis::runOnFunction(Function &f) {
       }
       outs() << "]";
     };
-    outs() << "SCC_edges:\n";
+
+    outs() << "SCC Edges:\n";
     for (std::size_t i = 0; i != sccs.size(); i++) {
       for (std::size_t j = 0; j != sccs.size(); j++) {
         if (scc_edges_view[i * sccs.size() + j]) {
@@ -209,9 +245,16 @@ bool klee::PDGAnalysis::runOnFunction(Function &f) {
           print_scc(scc1);
           outs() << " -> ";
           print_scc(scc2);
-          outs() << ", ";
+          outs() << "\n";
         }
       }
+    }
+    outs() << "\n";
+
+    outs() << "SCC Toposort:\n";
+    for (int scc_id : tarjan.get_SCC_toposort()) {
+      print_scc(sccs[scc_id]);
+      outs() << " -> ";
     }
     outs() << "\n";
   }
