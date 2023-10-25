@@ -5,7 +5,7 @@ It can do auto-vectoraization when **control flow exists** since its **If-Conver
 ## 1. File Organization  
 ***lib/Module/PDGAnalysis.cpp:*** an LLVM Analysis Pass to generate PDG information from LLVM IR;  
 ***lib/Module/Tarjan_SCC.cpp:*** an utility class to calculate SCC of PDG;  
-***lib/Module/isl_autovec.c:*** an utility program to calculate Data Dependence Graph(DDG) to construct PDG, however, **since I haven't integrate ISL into KLEE（我不会，斯米马赛~~）**, you need put this file into the ISL source code dictionary and compile, for more information please visit: https://github.com/zhaosiying12138/isl and [《零基础入门依赖环的检测》](https://zhuanlan.zhihu.com/p/649953141);  
+***lib/Module/isl_ddg_analysis.c:*** an utility program to calculate Data Dependence Graph(DDG) to construct PDG, however, **since I haven't integrate ISL into KLEE（我不会，斯米马赛~~）**, you need put this file into the ISL source code dictionary and compile, for more information please visit: https://github.com/zhaosiying12138/isl and [《零基础入门依赖环的检测》](https://zhuanlan.zhihu.com/p/649953141);  
 ***lib/Core/PDGExecutor.cpp:*** modification on klee executor to executor LLVM IR in a loop distribution form automatically;  
 ***zsy_test/demo2\_3.ll & demo3\_3.ll:*** the demo LLVM IR to be executed.  
 
