@@ -163,7 +163,7 @@ bool klee::PDGAnalysis::runOnFunction(Function &f) {
       tarjan.add_edge(it_u->second, it_v->second);
     };
     {
-      // dump output directly from isl_autovec: https://github.com/zhaosiying12138/isl
+      // dump output directly from isl_autovec: lib/Module/isl_autovec.c
       add_edge("S5", "S5");
       add_edge("S5", "S4");
       add_edge("S5", "S6");
