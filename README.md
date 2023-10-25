@@ -10,7 +10,7 @@ It can do auto-vectoraization when **control flow exists** since its **If-Conver
 ***zsy_test/demo2\_3.ll & demo3\_3.ll:*** the demo LLVM IR to be executed.  
 
 ## 2. Usage  
-### Step 1: Make a testfile (If you want to run your own testcode)  
+### Step 1: Make a testfile (You can skip this step if you would like to use [zsy_test/demo2_3.ll] provided for you if you just want to learn the principle of PDG_AutoVec)  
 ```
 clang -Xclang -disable-O0-optnone -S -O0 -emit-llvm demo1.c -o demo1_1.ll  
 opt -S -mem2reg demo1_1.ll -o demo1_2.ll  
