@@ -16,7 +16,7 @@ opt -S -mem2reg demo1_1.ll -o demo1_2.ll
 opt -S -loop-simplify demo1_2.ll -o demo1_3.ll  
 ```
 
-### Step 2: Build Pass  
+### Step 2: Build modified KLEE  
 ```
 mkdir build  
 cd build  
