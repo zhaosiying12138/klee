@@ -1,12 +1,12 @@
 # PDG AutoVectorization  
 A toy auto-vectoraization implementation about the application of **Program Dependence Graph** using LLVM by zhaosiying12138.  
-It can do auto-vectoraization when **control flow exists** since its **If-Conversion** algorithm can treat control dependence as well as data dependence.
+It can do auto-vectoraization when **control flow exists** since its **If-Conversion** algorithm can **treat Control Dependence as Data Dependence**.
 
 ## 1. File Organization  
 ***lib/Module/PDGAnalysis.cpp:*** an LLVM Analysis Pass to generate PDG information from LLVM IR;  
 ***lib/Module/Tarjan_SCC.cpp:*** an utility class to calculate SCC of PDG;  
-***lib/Module/isl_ddg_analysis.c:*** an utility program to calculate Data Dependence Graph(DDG) to construct PDG, however, **since I haven't integrate ISL into KLEE（我不会，斯米马赛~~）**, you need put this file into the ISL source code dictionary and compile, for more information please visit: https://github.com/zhaosiying12138/isl and [《零基础入门依赖环的检测》](https://zhuanlan.zhihu.com/p/649953141);  
-***lib/Core/PDGExecutor.cpp:*** modification on klee executor to executor LLVM IR in a loop distribution form automatically;  
+***lib/Module/isl_ddg_analysis.c:*** an utility program to calculate Data Dependence Graph(DDG) to construct PDG, however, **since I haven't integrate ISL into KLEE（我不会，斯米马赛~~）**, you need put this file into the ISL source code dictionary and compile, for more information please visit: https://github.com/zhaosiying12138/isl and [《零基础入门依赖环的检测》-流霞祭司曌鹓鶵](https://zhuanlan.zhihu.com/p/649953141);  
+***lib/Core/PDGExecutor.cpp:*** modification on klee executor to executor loops of LLVM IR in a **Loop-Distribution-Form** automatically;  
 ***zsy_test/demo2\_3.ll & demo3\_3.ll:*** the demo LLVM IR to be executed.  
 
 ## 2. Usage  
@@ -25,7 +25,7 @@ cmake .. -DCMAKE_BUILD_TYPE=Debug -DENABLE_SOLVER_Z3=ON -DZ3_INCLUDE_DIRS=/your-
 make -j 65535  
 ```
 
-### Step 3: Run the LLVM IR using KLEE  
+### Step 3: Execute the LLVM IR using KLEE  
 ```
 build/bin/klee zsy_test/demo2_3.ll  
 ```
@@ -35,7 +35,7 @@ build/bin/klee zsy_test/demo2_3.ll
 **[TODO!!!]**   
 
 ## 4. Link  
-[《零基础入门控制依赖图构建的理论与实践》](https://zhuanlan.zhihu.com/p/658705992)  
+[《零基础入门控制依赖图构建的理论与实践》-流霞祭司曌鹓鶵](https://zhuanlan.zhihu.com/p/658705992)  
 
 ## 5. Copyright  
 Copyright (c) 2023 By 流月城先进偃甲技术研究院-对伏羲外包国家重点实验室-流霞祭司曌鹓鶵 founded by 五色石炼制关键工艺天界自然科学基金(2022LYC12138).  All rights reserved.  
