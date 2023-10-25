@@ -9,8 +9,8 @@
 
 #include "Passes.h"
 #include "Tarjan_SCC.h"
-
 #include "llvm/Analysis/LoopInfo.h"
+#include "llvm/Analysis/LoopIterator.h"
 #include "llvm/IR/CFG.h"
 #include "llvm/Analysis/PostDominators.h"
 #include <vector>
@@ -35,11 +35,21 @@ bool klee::PDGAnalysis::runOnFunction(Function &f) {
   LoopInfo &LI = getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
   PostDominatorTree &PDT = getAnalysis<PostDominatorTreeWrapperPass>().getPostDomTree();
 
+  outs() << "\nLoopInfo Result:\n";
+  outs() << "Loop BasicBlocks: ";
   for (Loop *LP : LI) {
     assert(LP->getLoopDepth() == 1);
     func_loop_map.insert({&f, LP});
+    LoopBlocksRPO LBRPO{LP};
+    LBRPO.perform(&LI);
+    for (auto it = LBRPO.begin(); it != LBRPO.end(); ++it) {
+      outs() << (*it)->getNameOrAsOperand() << ", ";
+    }
+    outs() << "\n";
 
     klee::PDG_LoopInfo info{};
+    std::map<BasicBlock *, int> bb_reverse_id_map{};
+    std::map<std::string, int> bb_name_id_map{};
     info.preheader = LP->getLoopPreheader();
     info.header = LP->getHeader();
     info.latch = LP->getLoopLatch();
@@ -50,14 +60,20 @@ bool klee::PDGAnalysis::runOnFunction(Function &f) {
     info.bodies = std::move(loop_body);
     loopinfo_map.insert({LP, info});
 
-    outs() << "\nLoopInfo Result:\n";
     outs() << "Loop Preheader: " << info.preheader->getNameOrAsOperand() << "\n";
     outs() << "Loop Header: " << info.header->getNameOrAsOperand() << "\n";
     outs() << "Loop Latch: " << info.latch->getNameOrAsOperand() << "\n";
     outs() << "Loop Exit: " << info.exit->getNameOrAsOperand() << "\n";
     outs() << "Loop body: ";
-    for (auto body : info.bodies) {
-      outs() << body->getNameOrAsOperand() << ", ";
+    {
+      int id = 0;
+      bb_reverse_id_map.insert({info.header, id});
+      bb_name_id_map.emplace(info.header->getNameOrAsOperand(), id++);
+      for (auto body : info.bodies) {
+        outs() << body->getNameOrAsOperand() << ", ";
+        bb_reverse_id_map.insert({body, id});
+        bb_name_id_map.emplace(body->getNameOrAsOperand(), id++);
+      }
     }
     outs() << "\n";
 
@@ -123,43 +139,77 @@ bool klee::PDGAnalysis::runOnFunction(Function &f) {
     }
 
     outs() << "\nCDG Result:\n";
+    // PDG Construction Step 1: add control dependence
+    klee::Tarjan_SCC tarjan{static_cast<int>(info.bodies.size()) + 1};
     for (BasicBlock *bb : info.bodies) {
       outs() << bb->getNameOrAsOperand() << ":\t";
       auto cdg_multimap_it = cdginfo_map.equal_range(bb);
       for (auto it = cdg_multimap_it.first; it != cdg_multimap_it.second; ++it) {
         CDGNode tmp_cdgNode = it->second;
         outs() << tmp_cdgNode.bb->getNameOrAsOperand() << "-" << (tmp_cdgNode.flag ? "T" : "F") << ", ";
+        auto it_u = bb_reverse_id_map.find(tmp_cdgNode.bb);
+        auto it_v = bb_reverse_id_map.find(bb);
+        assert(it_u != bb_reverse_id_map.end() && it_v != bb_reverse_id_map.end());
+        tarjan.add_edge(it_u->second, it_v->second);
       }
       outs() << "\n";
     }
 
+    // PDG Construction Step 2: add data dependence
+    auto add_edge = [&tarjan, &bb_name_id_map](auto str1, auto str2) {
+      auto it_u = bb_name_id_map.find(str1);
+      auto it_v = bb_name_id_map.find(str2);
+      assert(it_u != bb_name_id_map.end() && it_v != bb_name_id_map.end());
+      tarjan.add_edge(it_u->second, it_v->second);
+    };
+    add_edge("S4", "S5");
+    add_edge("S5", "S4");
+    add_edge("S4", "S6");
+    add_edge("S6", "S4");
+    add_edge("S7", "S8");
+    // [S7,] -> [S8,], [S4,S6,S5,] -> [S7,], [S2,] -> [S3,], [S2,] -> [S4,S6,S5,], [S1,] -> [S3,], [S1,] -> [S2,], [%4,] -> [S8,], [%4,] -> [S1,]
+
     outs() << "\nTarjan-SCC Result:\n";
-    klee::Tarjan_SCC tarjan{7};
-    tarjan.add_edge(1, 2);
-    tarjan.add_edge(1, 3);
-    tarjan.add_edge(2, 4);
-    tarjan.add_edge(3, 4);
-    tarjan.add_edge(3, 5);
-    tarjan.add_edge(4, 1);
-    tarjan.add_edge(4, 6);
-    tarjan.add_edge(5, 6);
+    outs() << "BasicBlock-ID-Mapping: ";
+    outs() << info.header->getNameOrAsOperand() << "(" << bb_reverse_id_map.find(info.header)->second << "), ";
+    for (auto bb : info.bodies) {
+      outs() << bb->getNameOrAsOperand() << "(" << bb_reverse_id_map.find(bb)->second << "), ";
+    }
+    outs() << "\n";
     auto sccs = tarjan.compute_scc();
     {
       int i = 0;
       for (auto scc : sccs) {
         outs() << "SCC(" << i++ << "): [";
         for (int u : scc) {
-          outs() << u << ", ";
+          outs() << u << ",";
         }
         outs() << "], ";
       }
     }
     outs() << "\n";
     int *scc_edges_view = tarjan.get_SCC_edges_view();
+    auto print_scc = [&info] (std::vector<int> scc) {
+      assert(!scc.empty());
+      BasicBlock *bb;
+      bb = scc[0] == 0 ? info.header : info.bodies[scc[0] - 1];
+      outs() << "[" << bb->getNameOrAsOperand();
+      for (std::size_t i = 1; i != scc.size(); ++i) {
+        BasicBlock *bb = scc[i] == 0 ? info.header : info.bodies[scc[i] - 1];
+        outs() << "," << bb->getNameOrAsOperand();
+      }
+      outs() << "]";
+    };
+    outs() << "SCC_edges:\n";
     for (std::size_t i = 0; i != sccs.size(); i++) {
       for (std::size_t j = 0; j != sccs.size(); j++) {
         if (scc_edges_view[i * sccs.size() + j]) {
-          outs() << "SCC(" << i << ") -> SCC(" << j << "), ";
+          auto scc1 = sccs[i];
+          auto scc2 = sccs[j];
+          print_scc(scc1);
+          outs() << " -> ";
+          print_scc(scc2);
+          outs() << ", ";
         }
       }
     }
@@ -167,10 +217,6 @@ bool klee::PDGAnalysis::runOnFunction(Function &f) {
   }
   assert(0);
 
-
-
-  // DominatorTree &DT = getAnalysis<DominatorTreeWrapperPass>().getDomTree();
-  // DT.print(outs());
   return false;
 }
 
