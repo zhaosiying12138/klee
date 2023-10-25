@@ -29,19 +29,33 @@ void Executor::pdg_executeInstruction(ExecutionState &state, KInstruction *ki) {
     KFunction *kf = kmodule->functionMap[i->getParent()->getParent()];
     auto loop_it = kf->func_loop_map.equal_range(f);
     for (auto it = loop_it.first; it != loop_it.second; ++it) {
+      // it->second has the type of [Loop *]
       pdg_loopinfo = kf->loopinfo_map[it->second];
+      pdg_cdginfo = kf->cdginfo_map[it->second];
+      pdg_sccs_worklist = kf->sccs_worklist_map[it->second];
+
       std::queue<BasicBlock *>().swap(pdg_worklist); // ZSY_HACK: the same as pdg_worklist.clear()
       outs() << "Loop Preheader: " << pdg_loopinfo.preheader->getNameOrAsOperand() << "\n";
       outs() << "Loop Header: " << pdg_loopinfo.header->getNameOrAsOperand() << "\n";
       outs() << "Loop Latch: " << pdg_loopinfo.latch->getNameOrAsOperand() << "\n";
       outs() << "Loop Exit: " << pdg_loopinfo.exit->getNameOrAsOperand() << "\n";
-
       outs() << "Loop body: ";
       for (auto body : pdg_loopinfo.bodies) {
         pdg_worklist.push(body);
         outs() << body->getNameOrAsOperand() << ", ";
       }
       outs() << "\n";
+
+      while (!pdg_sccs_worklist.empty()) {
+        std::vector<llvm::BasicBlock *> scc = pdg_sccs_worklist.front();
+        pdg_sccs_worklist.pop();
+        for(auto bb : scc) {
+          outs() << bb->getNameOrAsOperand() << ",";
+        }
+        outs() << "\n";
+      }
+
+      assert(0);
 
       pdg_basicblock_to_exec = pdg_worklist.front();
       pdg_worklist.pop();

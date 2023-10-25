@@ -114,6 +114,8 @@ public:
 
   static std::multimap<llvm::Function *, llvm::Loop *> func_loop_map;
   static std::map<llvm::Loop *, PDG_LoopInfo> loopinfo_map;
+  static std::map<llvm::Loop *, std::multimap<llvm::BasicBlock *, CDGNode>> cdginfo_map;
+  static std::map<llvm::Loop *, std::queue<std::vector<llvm::BasicBlock *>>> sccs_worklist_map;
 };
 
 class DivCheckPass : public llvm::ModulePass {

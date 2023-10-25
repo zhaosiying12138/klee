@@ -215,8 +215,11 @@ private:
   /// Typeids used during exception handling
   std::vector<ref<Expr>> eh_typeids;
 
+  // need re-initialized per loop executed
   int pdg_status;
   PDG_LoopInfo pdg_loopinfo;
+  std::multimap<llvm::BasicBlock *, CDGNode> pdg_cdginfo;
+  std::queue<std::vector<llvm::BasicBlock *>> pdg_sccs_worklist;
   std::queue<llvm::BasicBlock *> pdg_worklist;
   llvm::BasicBlock *pdg_basicblock_to_exec;
   int pdg_iter_cnt;

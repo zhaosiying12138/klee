@@ -20,6 +20,7 @@
 
 #include <map>
 #include <memory>
+#include <queue>
 #include <set>
 #include <vector>
 
@@ -77,6 +78,8 @@ namespace klee {
     }
     std::multimap<llvm::Function *, llvm::Loop *> func_loop_map;
     std::map<llvm::Loop *, PDG_LoopInfo> loopinfo_map;
+    std::map<llvm::Loop *, std::multimap<llvm::BasicBlock *, CDGNode>> cdginfo_map;
+    std::map<llvm::Loop *, std::queue<std::vector<llvm::BasicBlock *>>> sccs_worklist_map;
   };
 
 

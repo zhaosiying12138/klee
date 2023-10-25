@@ -6,7 +6,7 @@
             "type": "cppdbg",
             "request": "launch",
             "program": "${workspaceFolder}/build/bin/klee",
-            "args": ["${workspaceFolder}/zsy_test/test1.bc"],
+            "args": ["${workspaceFolder}/zsy_test/demo2_3.ll"],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}/build/bin",
             "environment": [],

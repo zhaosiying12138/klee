@@ -90,7 +90,7 @@ bool klee::PDGAnalysis::runOnFunction(Function &f) {
     });
 
     outs() << "\nStart to Calculate Control Dependence Graph:\n";
-    std::multimap<BasicBlock *, klee::CDGNode> cdginfo_map{};
+    std::multimap<BasicBlock *, klee::CDGNode> cdginfo{};
 
     for (DomTreeNode *x_dtnode : construct_cd_working_list) {
       BasicBlock *x_bb = x_dtnode->getBlock();
@@ -110,7 +110,7 @@ bool klee::PDGAnalysis::runOnFunction(Function &f) {
             assert(TInst->getSuccessor(1) == x_bb);
           }
           klee::CDGNode tmp_cdgNode{y_bb, flag};
-          cdginfo_map.insert({x_bb, tmp_cdgNode});
+          cdginfo.insert({x_bb, tmp_cdgNode});
           outs() << "\tadd " << y_bb->getNameOrAsOperand() << "-" << (flag ? "T" : "F")
             <<" to CD(" << x_bb->getNameOrAsOperand() << ")\n";
         }
@@ -119,31 +119,32 @@ bool klee::PDGAnalysis::runOnFunction(Function &f) {
       // Case 2:
       outs() << "Case 2:\n";
       for (DomTreeNode *z_dtnode : x_dtnode->children()) {
-        std::multimap<BasicBlock *, klee::CDGNode> tmp_cdginfo_map{};
+        std::multimap<BasicBlock *, klee::CDGNode> tmp_cdginfo{};
         BasicBlock *z_bb = z_dtnode->getBlock();
-        auto cdg_multimap_it = cdginfo_map.equal_range(z_bb);
+        auto cdg_multimap_it = cdginfo.equal_range(z_bb);
         for (auto it = cdg_multimap_it.first; it != cdg_multimap_it.second; ++it) {
           CDGNode tmp_cdgNode = it->second;
           BasicBlock *y_bb = tmp_cdgNode.bb;
           int y_bb_flag = tmp_cdgNode.flag;
           if (PDT.getNode(y_bb)->getIDom() != x_dtnode) {
-            // cdginfo_map.insert({x_bb, tmp_cdgNode}); // BUG! Cannot insert at the same time as iteration
-            tmp_cdginfo_map.insert({x_bb, tmp_cdgNode});
+            // cdginfo.insert({x_bb, tmp_cdgNode}); // BUG! Cannot insert at the same time as iteration
+            tmp_cdginfo.insert({x_bb, tmp_cdgNode});
             outs() << "\tadd " << y_bb->getNameOrAsOperand() << "-" << (y_bb_flag ? "T" : "F")
               <<" to CD(" << x_bb->getNameOrAsOperand() << ")\n";
           }
         }
-        cdginfo_map.insert(tmp_cdginfo_map.begin(), tmp_cdginfo_map.end());
+        cdginfo.insert(tmp_cdginfo.begin(), tmp_cdginfo.end());
       }
       outs() << "=================\n";
     }
+    cdginfo_map.insert({LP, cdginfo});
 
     outs() << "\nCDG Result:\n";
     // PDG Construction Step 1: add control dependence
     klee::Tarjan_SCC tarjan{static_cast<int>(info.bodies.size()) + 1};
     for (BasicBlock *bb : info.bodies) {
       outs() << bb->getNameOrAsOperand() << ":\t";
-      auto cdg_multimap_it = cdginfo_map.equal_range(bb);
+      auto cdg_multimap_it = cdginfo.equal_range(bb);
       for (auto it = cdg_multimap_it.first; it != cdg_multimap_it.second; ++it) {
         CDGNode tmp_cdgNode = it->second;
         outs() << tmp_cdgNode.bb->getNameOrAsOperand() << "-" << (tmp_cdgNode.flag ? "T" : "F") << ", ";
@@ -252,13 +253,21 @@ bool klee::PDGAnalysis::runOnFunction(Function &f) {
     outs() << "\n";
 
     outs() << "SCC Toposort:\n";
+    std::queue<std::vector<BasicBlock *>> sccs_worklist{};
     for (int scc_id : tarjan.get_SCC_toposort()) {
+      std::vector<BasicBlock *> tmp_scc_bbs{};
+      BasicBlock *tmp_bb;
+      for (int i : sccs[scc_id]) {
+        tmp_bb = i == 0 ? info.header : info.bodies[i - 1];
+        tmp_scc_bbs.push_back(tmp_bb);
+      }
+      sccs_worklist.push(tmp_scc_bbs);
       print_scc(sccs[scc_id]);
       outs() << " -> ";
     }
     outs() << "\n";
+    sccs_worklist_map.insert({LP, sccs_worklist});
   }
-  assert(0);
 
   return false;
 }
@@ -273,3 +282,5 @@ void klee::PDGAnalysis::getAnalysisUsage(AnalysisUsage &AU) const {
 char klee::PDGAnalysis::ID = 0;
 std::multimap<Function *, Loop *> klee::PDGAnalysis::func_loop_map{};
 std::map<Loop *, klee::PDG_LoopInfo> klee::PDGAnalysis::loopinfo_map{};
+std::map<Loop *, std::multimap<BasicBlock *, klee::CDGNode>> klee::PDGAnalysis::cdginfo_map{};
+std::map<Loop *, std::queue<std::vector<BasicBlock *>>> klee::PDGAnalysis::sccs_worklist_map{};

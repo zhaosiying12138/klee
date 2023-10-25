@@ -312,8 +312,14 @@ void KModule::manifest(InterpreterHandler *ih, bool forceSourceOutput) {
     }
 
     auto kf = std::unique_ptr<KFunction>(new KFunction(&Function, this));
-    kf->func_loop_map = std::move(PDGAnalysis::func_loop_map);
-    kf->loopinfo_map = std::move(PDGAnalysis::loopinfo_map);
+    // only move analysis result when function matched!
+    // otherwise the moved analysis result will be empty and it will override the kf member object!
+    if (PDGAnalysis::func_loop_map.find(&Function) != PDGAnalysis::func_loop_map.end()) {
+      kf->func_loop_map = std::move(PDGAnalysis::func_loop_map);
+      kf->loopinfo_map = std::move(PDGAnalysis::loopinfo_map);
+      kf->cdginfo_map = std::move(PDGAnalysis::cdginfo_map);
+      kf->sccs_worklist_map = std::move(PDGAnalysis::sccs_worklist_map);
+    }
 
     for (unsigned i=0; i<kf->numInstructions; ++i) {
       KInstruction *ki = kf->instructions[i];
