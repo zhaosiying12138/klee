@@ -136,12 +136,12 @@ void Executor::pdg_executeInstruction(ExecutionState &state, KInstruction *ki) {
     if (!is_exec) {
       ++pdg_loopbody_to_exec_cit;
       if (pdg_loopbody_to_exec_cit != pdg_scc_to_exec.cend()) {
-        // ZSY_BUGGY: the curr_bb parameter makes no sence, it should not be used!!
-        transferToBasicBlock(*pdg_loopbody_to_exec_cit, curr_bb, state);
+        // ZSY_BUGGY: the 2nd parameter makes no sence, it should not be used!!
+        transferToBasicBlock(*pdg_loopbody_to_exec_cit, nullptr, state);
         return;
       } else {
-        // ZSY_BUGGY: the curr_bb parameter makes no sence, it should not be used!!
-        transferToBasicBlock(pdg_loopinfo.latch, curr_bb, state);
+        // ZSY_BUGGY: the 2nd parameter makes no sence, it should not be used!!
+        transferToBasicBlock(pdg_loopinfo.latch, nullptr, state);
         pdg_loopbody_to_exec_cit = pdg_scc_to_exec.cbegin();
         pdg_status = 2;
         return;
@@ -318,12 +318,12 @@ void Executor::pdg_executeInstruction(ExecutionState &state, KInstruction *ki) {
 
         ++pdg_loopbody_to_exec_cit;
         if (pdg_loopbody_to_exec_cit != pdg_scc_to_exec.cend()) {
-          // ZSY_BUGGY: the curr_bb parameter makes no sence, it should not be used!!
-          transferToBasicBlock(*pdg_loopbody_to_exec_cit, curr_bb, state);
+          // ZSY_BUGGY: the 2nd parameter makes no sence, it should not be used!!
+          transferToBasicBlock(*pdg_loopbody_to_exec_cit, nullptr, state);
           pdg_status = 3;
         } else {
           // ZSY_BUGGY: the curr_bb parameter makes no sence, it should not be used!!
-          transferToBasicBlock(pdg_loopinfo.latch, curr_bb, state);
+          transferToBasicBlock(pdg_loopinfo.latch, nullptr, state);
           pdg_loopbody_to_exec_cit = pdg_scc_to_exec.cbegin();
         }
       }
@@ -671,7 +671,7 @@ void Executor::pdg_executeInstruction(ExecutionState &state, KInstruction *ki) {
     break;
   }
   case Instruction::PHI: {
-    if (pdg_status > 0) {
+    if (pdg_status > 0 && i->getParent() != pdg_loopinfo.header) {
       // Don't support PHI Instruction currently, 斯米马赛~~
       assert(0);
     }
