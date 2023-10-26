@@ -559,6 +559,10 @@ void Executor::pdg_executeInstruction(ExecutionState &state, KInstruction *ki) {
 
   case Instruction::Invoke:
   case Instruction::Call: {
+    if (pdg_status > 0) {
+      // Don't support PHI Instruction currently, 斯米马赛~~
+      assert(0);
+    }
     // Ignore debug intrinsic calls
     if (isa<DbgInfoIntrinsic>(i))
       break;
@@ -667,6 +671,10 @@ void Executor::pdg_executeInstruction(ExecutionState &state, KInstruction *ki) {
     break;
   }
   case Instruction::PHI: {
+    if (pdg_status > 0) {
+      // Don't support PHI Instruction currently, 斯米马赛~~
+      assert(0);
+    }
     ref<Expr> result = eval(ki, state.incomingBBIndex, state).value;
     bindLocal(ki, state, result);
     break;
