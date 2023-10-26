@@ -90,7 +90,7 @@ void Executor::pdg_executeInstruction(ExecutionState &state, KInstruction *ki) {
         if (pdg_scc_to_exec.empty()) {
           pdg_ITER_CNTS = pdg_iter_cnt - 1;
           outs() << "Total loop iteration cnts: " << pdg_ITER_CNTS << "\n";
-          auto tmp_control_vars = std::unique_ptr<int[]>{ new int[pdg_ITER_CNTS]() };
+          std::unique_ptr<int[]> tmp_control_vars{ new int[pdg_ITER_CNTS]() };
           for (std::size_t idx = 0; idx != pdg_ITER_CNTS; ++idx) {
             tmp_control_vars[idx] = 1;
           }
@@ -104,8 +104,8 @@ void Executor::pdg_executeInstruction(ExecutionState &state, KInstruction *ki) {
           pdg_iter_cnt = 0;
 
           for (BasicBlock *bb_to_exec : pdg_scc_to_exec) {
-            outs() << "BasicBlock to execute: " << bb_to_exec->getNameOrAsOperand() << "\n";
-            auto tmp_exec_vars = std::unique_ptr<int[]>{ new int[pdg_ITER_CNTS]() };
+            outs() << "BasicBlock(s) to execute: " << bb_to_exec->getNameOrAsOperand() << "\n";
+            std::unique_ptr<int[]> tmp_exec_vars{ new int[pdg_ITER_CNTS]() };
             outs() << "Depends on: ";
             auto cdg_multimap_it = pdg_cdginfo.equal_range(bb_to_exec);
             for (auto it = cdg_multimap_it.first; it != cdg_multimap_it.second; ++it) {
@@ -132,9 +132,6 @@ void Executor::pdg_executeInstruction(ExecutionState &state, KInstruction *ki) {
     int is_exec = (pdg_exec_vars_map[curr_bb])[pdg_iter_cnt - 1];
     outs() << "[ZSY_Executor] loop body: " << curr_bb->getNameOrAsOperand();
     outs() << (is_exec ? " to run!" : " SKIP!") << "\n";
-    curr_bb->dump();
-    outs() << "=========================\n";
-
 
     if (!is_exec) {
       ++pdg_loopbody_to_exec_cit;
@@ -143,7 +140,9 @@ void Executor::pdg_executeInstruction(ExecutionState &state, KInstruction *ki) {
         transferToBasicBlock(*pdg_loopbody_to_exec_cit, curr_bb, state);
         return;
       } else {
+        // ZSY_BUGGY: the curr_bb parameter makes no sence, it should not be used!!
         transferToBasicBlock(pdg_loopinfo.latch, curr_bb, state);
+        pdg_loopbody_to_exec_cit = pdg_scc_to_exec.cbegin();
         pdg_status = 2;
         return;
       }
