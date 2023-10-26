@@ -231,6 +231,40 @@ private:
   int pdg_status;
   int pdg_iter_cnt;
 
+  template <typename T>
+  std::string print_array(const T *arr, std::function<std::string(T)> f, std::size_t len = -1)
+  {
+    if (len == static_cast<std::size_t>(-1))
+      len = pdg_ITER_CNTS;
+    if (len == 0) {
+      return "[]";
+    }
+    std::string str = "[";
+    str += f(arr[0]);
+    for (size_t i = 1; i != len; ++i) {
+      str += ", ";
+      str += f(arr[i]);
+    }
+    str += "]";
+    return str;
+  }
+
+  template <typename T>
+  std::string print_array(const std::vector<T> v, std::function<std::string(T)> f)
+  {
+    if (v.size() == 0) {
+      return "[]";
+    }
+    std::string str = "[";
+    str += f(v[0]);
+    for (size_t i = 1; i != v.size(); ++i) {
+      str += ", ";
+      str += f(v[i]);
+    }
+    str += "]";
+    return str;
+  }
+
   /// Return the typeid corresponding to a certain `type_info`
   ref<ConstantExpr> getEhTypeidFor(ref<Expr> type_info);
 

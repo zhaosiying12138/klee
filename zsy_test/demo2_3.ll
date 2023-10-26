@@ -332,11 +332,12 @@ define dso_local i32 @main() #0 {
 
 14:                                               ; preds = %12
   %15 = add nsw i32 %.0, 1
-  %16 = call i32 (i8*, ...) @printf(i8* noundef getelementptr inbounds ([10 x i8], [10 x i8]* @.str.3, i64 0, i64 0), i32 noundef %15)
+  %16 = add nsw i32 %.0, 1
+  ;%16 = call i32 (i8*, ...) @printf(i8* noundef getelementptr inbounds ([10 x i8], [10 x i8]* @.str.3, i64 0, i64 0), i32 noundef %15)
   %17 = sext i32 %.0 to i64
   %18 = getelementptr inbounds [8 x [8 x i32]], [8 x [8 x i32]]* @exec_var, i64 0, i64 %17
   %19 = getelementptr inbounds [8 x i32], [8 x i32]* %18, i64 0, i64 0
-  call void @print_arr(i32* noundef %19, i32 noundef 8)
+  ;call void @print_arr(i32* noundef %19, i32 noundef 8)
   br label %20
 
 20:                                               ; preds = %14

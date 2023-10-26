@@ -41,9 +41,9 @@ void Executor::pdg_executeInstruction(ExecutionState &state, KInstruction *ki) {
     // control_vars: 0 means undefined, 1 means true, 2 means false
     for (std::size_t i = 0; i != pdg_ITER_CNTS; ++i) {
       if (flag) {
-        exec_vars[i] = control_vars[i] == 1;
+        exec_vars[i] |= control_vars[i] == 1;
       } else {
-        exec_vars[i] = control_vars[i] == 2;
+        exec_vars[i] |= control_vars[i] == 2;
       }
     }
   };
@@ -84,7 +84,7 @@ void Executor::pdg_executeInstruction(ExecutionState &state, KInstruction *ki) {
       return;
     }
   } else if (pdg_status == 2) {
-      i->dump();
+      // i->dump();
       if (i->getParent() == pdg_loopinfo.exit) {
         outs() << "[ZSY_Executor] loop [EXIT]!\n";
         if (pdg_scc_to_exec.empty()) {
@@ -95,41 +95,70 @@ void Executor::pdg_executeInstruction(ExecutionState &state, KInstruction *ki) {
             tmp_control_vars[idx] = 1;
           }
           pdg_control_vars_map.insert({pdg_loopinfo.header, std::move(tmp_control_vars)});
+        } else {
+          for (BasicBlock *bb : pdg_scc_to_exec) {
+            outs() << bb->getNameOrAsOperand() << " の Exec_variables: ";
+            outs() << print_array(pdg_exec_vars_map[bb].get(),
+              std::function([](int e) { return std::to_string(e); })) << "\n";
+          }
         }
         if (!pdg_sccs_worklist.empty()) {
+          assert(!pdg_sccs_worklist.empty());
           pdg_scc_to_exec = pdg_sccs_worklist.front();
           pdg_loopbody_to_exec_cit = pdg_scc_to_exec.cbegin();
           pdg_sccs_worklist.pop();
-          assert(!pdg_sccs_worklist.empty());
           pdg_iter_cnt = 0;
 
-          for (BasicBlock *bb_to_exec : pdg_scc_to_exec) {
-            outs() << "BasicBlock(s) to execute: " << bb_to_exec->getNameOrAsOperand() << "\n";
-            std::unique_ptr<int[]> tmp_exec_vars{ new int[pdg_ITER_CNTS]() };
-            outs() << "Depends on: ";
-            auto cdg_multimap_it = pdg_cdginfo.equal_range(bb_to_exec);
-            for (auto it = cdg_multimap_it.first; it != cdg_multimap_it.second; ++it) {
-              CDGNode tmp_cdgNode = it->second;
-              outs() << tmp_cdgNode.bb->getNameOrAsOperand() << "-" << (tmp_cdgNode.flag ? "T" : "F") << ": ";
-              const int *tmp_cdgNode_bb_control_vars = pdg_control_vars_map[tmp_cdgNode.bb].get();
-              outs() << print_arr(tmp_cdgNode_bb_control_vars) << "\n";
-              cal_exec_vars(tmp_exec_vars.get(), tmp_cdgNode_bb_control_vars, tmp_cdgNode.flag);
-            }
-            outs() << "Exec_variables: " << print_arr(tmp_exec_vars.get()) << "\n";
-            pdg_exec_vars_map.insert({bb_to_exec, std::move(tmp_exec_vars)});
+          outs() << "\nBasicBlock(s) to execute: ";
+          outs() << print_array(pdg_scc_to_exec,
+            std::function([](BasicBlock *bb){ return bb->getNameOrAsOperand(); })) << "\n";
+
+          BasicBlock *scc_entry_bb = pdg_scc_to_exec[0];
+          std::unique_ptr<int[]> tmp_exec_vars{ new int[pdg_ITER_CNTS]() };
+          outs() << "SCC[0]-" << scc_entry_bb->getNameOrAsOperand() << " Depends on: ";
+          auto cdg_multimap_it = pdg_cdginfo.equal_range(scc_entry_bb);
+          for (auto it = cdg_multimap_it.first; it != cdg_multimap_it.second; ++it) {
+            CDGNode tmp_cdgNode = it->second;
+            outs() << tmp_cdgNode.bb->getNameOrAsOperand() << "-" << (tmp_cdgNode.flag ? "T" : "F") << ": ";
+            const int *tmp_cdgNode_bb_control_vars = pdg_control_vars_map[tmp_cdgNode.bb].get();
+            outs() << print_array(tmp_cdgNode_bb_control_vars, std::function([](int e) { return std::to_string(e); })) << "\n";
+            cal_exec_vars(tmp_exec_vars.get(), tmp_cdgNode_bb_control_vars, tmp_cdgNode.flag);
           }
+          outs() << scc_entry_bb->getNameOrAsOperand() << " の Exec_variables: " << print_arr(tmp_exec_vars.get()) << "\n";
+          pdg_exec_vars_map.insert({scc_entry_bb, std::move(tmp_exec_vars)});
+          for (size_t i = 1; i != pdg_scc_to_exec.size(); ++i) {
+            pdg_exec_vars_map.insert({pdg_scc_to_exec[i],
+              std::unique_ptr<int[]>{ new int[pdg_ITER_CNTS]() }});
+          }
+
           transferToBasicBlock(pdg_loopinfo.header, pdg_loopinfo.preheader, state);
 
           return;
         } else {
-          assert(0);
-          pdg_status = 3;
+          pdg_status = 0;
         }
       }
   } else if (pdg_status == 3) {
     assert(pdg_loopbody_to_exec_cit != pdg_scc_to_exec.cend());
     BasicBlock *curr_bb = *pdg_loopbody_to_exec_cit;
-    int is_exec = (pdg_exec_vars_map[curr_bb])[pdg_iter_cnt - 1];
+    int is_exec;
+    if (pdg_loopbody_to_exec_cit == pdg_scc_to_exec.begin()) {
+      is_exec = (pdg_exec_vars_map[curr_bb])[pdg_iter_cnt - 1];
+    } else {
+      // cannot calculate ahead, so it need calculate every loop iteration
+      is_exec = 0;
+      auto cdg_multimap_it = pdg_cdginfo.equal_range(curr_bb);
+      for (auto it = cdg_multimap_it.first; it != cdg_multimap_it.second; ++it) {
+        CDGNode tmp_cdgNode = it->second;
+        const int *tmp_cdgNode_bb_control_vars = pdg_control_vars_map[tmp_cdgNode.bb].get();
+        if (tmp_cdgNode.flag) {
+          is_exec |= tmp_cdgNode_bb_control_vars[pdg_iter_cnt - 1] == 1;
+        } else {
+          is_exec |= tmp_cdgNode_bb_control_vars[pdg_iter_cnt - 1] == 2;
+        }
+      }
+      (pdg_exec_vars_map[curr_bb])[pdg_iter_cnt - 1] = is_exec;
+    }
     outs() << "[ZSY_Executor] loop body: " << curr_bb->getNameOrAsOperand();
     outs() << (is_exec ? " to run!" : " SKIP!") << "\n";
 
@@ -148,7 +177,7 @@ void Executor::pdg_executeInstruction(ExecutionState &state, KInstruction *ki) {
       }
     } else {
       pdg_status = 2;
-      i->dump();
+      // i->dump();
       // ZSY_INFO: Don't have return on purpuse! Continue to execute! 是故意的，不是不小心。
     }
 
@@ -157,9 +186,6 @@ void Executor::pdg_executeInstruction(ExecutionState &state, KInstruction *ki) {
   switch (i->getOpcode()) {
     // Control flow
   case Instruction::Ret: {
-    if (pdg_status == 4) {
-      pdg_status = 0;
-    }
     ReturnInst *ri = cast<ReturnInst>(i);
     KInstIterator kcaller = state.stack.back().caller;
     Instruction *caller = kcaller ? kcaller->inst : nullptr;
