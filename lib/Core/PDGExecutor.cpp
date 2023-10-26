@@ -12,6 +12,7 @@
 #include "llvm/IR/IntrinsicInst.h"
 #include <algorithm>
 #include <cassert>
+#include <string>
 #include <vector>
 
 using namespace llvm;
@@ -23,8 +24,31 @@ void Executor::pdg_executeInstruction(ExecutionState &state, KInstruction *ki) {
   Instruction *i = ki->inst;
   Function *f = i->getParent()->getParent();
 
+  auto print_arr = [this](const int *v) -> std::string {
+    std::string str;
+    // ZSY_BUGGY: assume v is not empty
+    str = "[" + std::to_string(v[0]);
+    for (std::size_t i = 1; i != pdg_ITER_CNTS; ++i) {
+      str += ", ";
+      str += std::to_string(v[i]);
+    }
+    str += "]";
+    return str;
+  };
+
+  auto cal_exec_vars = [this](int *exec_vars, const int *control_vars, int flag) {
+    // exec_vars: 0 means false, 1 means true
+    // control_vars: 0 means undefined, 1 means true, 2 means false
+    for (std::size_t i = 0; i != pdg_ITER_CNTS; ++i) {
+      if (flag) {
+        exec_vars[i] = control_vars[i] == 1;
+      } else {
+        exec_vars[i] = control_vars[i] == 2;
+      }
+    }
+  };
+
   if (pdg_status == 1) {
-    pdg_status = 2;
     outs() << "\n[ZSY_Executor] call zsy_test()\n";
     KFunction *kf = kmodule->functionMap[i->getParent()->getParent()];
     auto loop_it = kf->func_loop_map.equal_range(f);
@@ -34,60 +58,107 @@ void Executor::pdg_executeInstruction(ExecutionState &state, KInstruction *ki) {
       pdg_cdginfo = kf->cdginfo_map[it->second];
       pdg_sccs_worklist = kf->sccs_worklist_map[it->second];
 
-      std::queue<BasicBlock *>().swap(pdg_worklist); // ZSY_HACK: the same as pdg_worklist.clear()
+      pdg_control_vars_map.clear();
+      pdg_exec_vars_map.clear();
+
+      // std::queue<BasicBlock *>().swap(pdg_worklist); // ZSY_HACK: the same as pdg_worklist.clear()
       outs() << "Loop Preheader: " << pdg_loopinfo.preheader->getNameOrAsOperand() << "\n";
       outs() << "Loop Header: " << pdg_loopinfo.header->getNameOrAsOperand() << "\n";
       outs() << "Loop Latch: " << pdg_loopinfo.latch->getNameOrAsOperand() << "\n";
       outs() << "Loop Exit: " << pdg_loopinfo.exit->getNameOrAsOperand() << "\n";
       outs() << "Loop body: ";
       for (auto body : pdg_loopinfo.bodies) {
-        pdg_worklist.push(body);
         outs() << body->getNameOrAsOperand() << ", ";
       }
       outs() << "\n";
 
-      while (!pdg_sccs_worklist.empty()) {
-        std::vector<llvm::BasicBlock *> scc = pdg_sccs_worklist.front();
-        pdg_sccs_worklist.pop();
-        for(auto bb : scc) {
-          outs() << bb->getNameOrAsOperand() << ",";
-        }
-        outs() << "\n";
-      }
-
-      assert(0);
-
-      pdg_basicblock_to_exec = pdg_worklist.front();
-      pdg_worklist.pop();
+      pdg_scc_to_exec = {};
+      pdg_sccs_worklist.pop();
       pdg_iter_cnt = 0;
+
       outs() << "\n[ZSY_Executor] exec BasicBlock: " <<
-        pdg_basicblock_to_exec->getNameOrAsOperand() << " [PARALLELLY]!\n";
+        pdg_loopinfo.header->getNameOrAsOperand() << "\n";
       transferToBasicBlock(pdg_loopinfo.header, pdg_loopinfo.preheader, state);
+      pdg_status = 2;
 
       return;
     }
   } else if (pdg_status == 2) {
-      // i->dump();
+      i->dump();
       if (i->getParent() == pdg_loopinfo.exit) {
         outs() << "[ZSY_Executor] loop [EXIT]!\n";
-        if (!pdg_worklist.empty()) {
-          pdg_basicblock_to_exec = pdg_worklist.front();
-          pdg_worklist.pop();
+        if (pdg_scc_to_exec.empty()) {
+          pdg_ITER_CNTS = pdg_iter_cnt - 1;
+          outs() << "Total loop iteration cnts: " << pdg_ITER_CNTS << "\n";
+          auto tmp_control_vars = std::unique_ptr<int[]>{ new int[pdg_ITER_CNTS]() };
+          for (std::size_t idx = 0; idx != pdg_ITER_CNTS; ++idx) {
+            tmp_control_vars[idx] = 1;
+          }
+          pdg_control_vars_map.insert({pdg_loopinfo.header, std::move(tmp_control_vars)});
+        }
+        if (!pdg_sccs_worklist.empty()) {
+          pdg_scc_to_exec = pdg_sccs_worklist.front();
+          pdg_loopbody_to_exec_cit = pdg_scc_to_exec.cbegin();
+          pdg_sccs_worklist.pop();
+          assert(!pdg_sccs_worklist.empty());
           pdg_iter_cnt = 0;
-          outs() << "\n[ZSY_Executor] exec BasicBlock: " <<
-            pdg_basicblock_to_exec->getNameOrAsOperand() << " [PARALLELLY]!\n";
+
+          for (BasicBlock *bb_to_exec : pdg_scc_to_exec) {
+            outs() << "BasicBlock to execute: " << bb_to_exec->getNameOrAsOperand() << "\n";
+            auto tmp_exec_vars = std::unique_ptr<int[]>{ new int[pdg_ITER_CNTS]() };
+            outs() << "Depends on: ";
+            auto cdg_multimap_it = pdg_cdginfo.equal_range(bb_to_exec);
+            for (auto it = cdg_multimap_it.first; it != cdg_multimap_it.second; ++it) {
+              CDGNode tmp_cdgNode = it->second;
+              outs() << tmp_cdgNode.bb->getNameOrAsOperand() << "-" << (tmp_cdgNode.flag ? "T" : "F") << ": ";
+              const int *tmp_cdgNode_bb_control_vars = pdg_control_vars_map[tmp_cdgNode.bb].get();
+              outs() << print_arr(tmp_cdgNode_bb_control_vars) << "\n";
+              cal_exec_vars(tmp_exec_vars.get(), tmp_cdgNode_bb_control_vars, tmp_cdgNode.flag);
+            }
+            outs() << "Exec_variables: " << print_arr(tmp_exec_vars.get()) << "\n";
+            pdg_exec_vars_map.insert({bb_to_exec, std::move(tmp_exec_vars)});
+          }
           transferToBasicBlock(pdg_loopinfo.header, pdg_loopinfo.preheader, state);
+
           return;
         } else {
+          assert(0);
           pdg_status = 3;
         }
       }
+  } else if (pdg_status == 3) {
+    assert(pdg_loopbody_to_exec_cit != pdg_scc_to_exec.cend());
+    BasicBlock *curr_bb = *pdg_loopbody_to_exec_cit;
+    int is_exec = (pdg_exec_vars_map[curr_bb])[pdg_iter_cnt - 1];
+    outs() << "[ZSY_Executor] loop body: " << curr_bb->getNameOrAsOperand();
+    outs() << (is_exec ? " to run!" : " SKIP!") << "\n";
+    curr_bb->dump();
+    outs() << "=========================\n";
+
+
+    if (!is_exec) {
+      ++pdg_loopbody_to_exec_cit;
+      if (pdg_loopbody_to_exec_cit != pdg_scc_to_exec.cend()) {
+        // ZSY_BUGGY: the curr_bb parameter makes no sence, it should not be used!!
+        transferToBasicBlock(*pdg_loopbody_to_exec_cit, curr_bb, state);
+        return;
+      } else {
+        transferToBasicBlock(pdg_loopinfo.latch, curr_bb, state);
+        pdg_status = 2;
+        return;
+      }
+    } else {
+      pdg_status = 2;
+      i->dump();
+      // ZSY_INFO: Don't have return on purpuse! Continue to execute! 是故意的，不是不小心。
+    }
+
   }
 
   switch (i->getOpcode()) {
     // Control flow
   case Instruction::Ret: {
-    if (pdg_status == 3) {
+    if (pdg_status == 4) {
       pdg_status = 0;
     }
     ReturnInst *ri = cast<ReturnInst>(i);
@@ -187,6 +258,12 @@ void Executor::pdg_executeInstruction(ExecutionState &state, KInstruction *ki) {
   case Instruction::Br: {
     if (pdg_status == 2) {
       if (i->getParent() == pdg_loopinfo.header) {
+        BasicBlock *next_bb_to_exec;
+        if (pdg_scc_to_exec.empty()) {
+          next_bb_to_exec = pdg_loopinfo.latch;
+        } else {
+          next_bb_to_exec = pdg_scc_to_exec[0];
+        }
         outs() << "[ZSY_Executor] loop header " << ++pdg_iter_cnt << " time(s)!\n";
         BranchInst *bi = cast<BranchInst>(i);
         assert(bi->isConditional());
@@ -196,26 +273,60 @@ void Executor::pdg_executeInstruction(ExecutionState &state, KInstruction *ki) {
         successors[0] = bi->getSuccessor(0);
         successors[1] = bi->getSuccessor(1);
         if (successors[0] == pdg_loopinfo.exit) {
-          successors[1] = pdg_basicblock_to_exec;
+          // ZSY_BUGGY: I think it is impossible.
+          assert(0);
+          successors[1] = next_bb_to_exec;
         } else if (successors[1] == pdg_loopinfo.exit) {
-          successors[0] = pdg_basicblock_to_exec;
+          successors[0] = next_bb_to_exec;
         } else {
           assert(0);
         }
         if (cond->isTrue()) {
           transferToBasicBlock(successors[0], bi->getParent(), state);
+          if (successors[0] != pdg_loopinfo.latch) {
+            pdg_status = 3;
+          }
         } else {
           assert(cond->isFalse());
           transferToBasicBlock(successors[1], bi->getParent(), state);
         }
-      } else if (i->getParent() == pdg_basicblock_to_exec) {
-        outs() << "[ZSY_Executor] loop body!\n";
-        transferToBasicBlock(pdg_loopinfo.latch, pdg_basicblock_to_exec, state);
-      } else if (i->getParent() == pdg_loopinfo.latch) {
+      }
+      //  else if (i->getParent() == pdg_basicblock_to_exec) {
+      //   outs() << "[ZSY_Executor] loop body!\n";
+      //   transferToBasicBlock(pdg_loopinfo.latch, pdg_basicblock_to_exec, state);
+      // } 
+      else if (i->getParent() == pdg_loopinfo.latch) {
         outs() << "[ZSY_Executor] loop latch!\n";
         transferToBasicBlock(pdg_loopinfo.header, pdg_loopinfo.latch, state);
       } else {
-        assert(0);
+        BasicBlock *curr_bb = *pdg_loopbody_to_exec_cit;
+        outs() << "[ZSY_Executor] loop body: " << curr_bb->getNameOrAsOperand() << " ends!\n";
+        BranchInst *bi = cast<BranchInst>(i);
+        if (bi->isConditional()) {
+          if (pdg_iter_cnt == 1) {
+            std::unique_ptr<int[]> tmp_control_vars{new int[pdg_ITER_CNTS]()};
+            pdg_control_vars_map.insert({curr_bb, std::move(tmp_control_vars)});
+          }
+          ref<Expr> cond = eval(ki, 0, state).value;
+          cond = optimizer.optimizeExpr(cond, false);
+          if (cond->isTrue()) {
+            (pdg_control_vars_map[curr_bb])[pdg_iter_cnt - 1] = 1;
+          } else {
+            assert(cond->isFalse());
+            (pdg_control_vars_map[curr_bb])[pdg_iter_cnt - 1] = 2;
+          }
+        }
+
+        ++pdg_loopbody_to_exec_cit;
+        if (pdg_loopbody_to_exec_cit != pdg_scc_to_exec.cend()) {
+          // ZSY_BUGGY: the curr_bb parameter makes no sence, it should not be used!!
+          transferToBasicBlock(*pdg_loopbody_to_exec_cit, curr_bb, state);
+          pdg_status = 3;
+        } else {
+          // ZSY_BUGGY: the curr_bb parameter makes no sence, it should not be used!!
+          transferToBasicBlock(pdg_loopinfo.latch, curr_bb, state);
+          pdg_loopbody_to_exec_cit = pdg_scc_to_exec.cbegin();
+        }
       }
       return;
     }

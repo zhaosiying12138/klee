@@ -215,13 +215,20 @@ private:
   /// Typeids used during exception handling
   std::vector<ref<Expr>> eh_typeids;
 
-  // need re-initialized per loop executed
-  int pdg_status;
+  // Analysis Result from PDG_Pass
   PDG_LoopInfo pdg_loopinfo;
   std::multimap<llvm::BasicBlock *, CDGNode> pdg_cdginfo;
   std::queue<std::vector<llvm::BasicBlock *>> pdg_sccs_worklist;
-  std::queue<llvm::BasicBlock *> pdg_worklist;
-  llvm::BasicBlock *pdg_basicblock_to_exec;
+
+  // fixed for the current loop
+  std::size_t pdg_ITER_CNTS;
+  std::map<llvm::BasicBlock *, std::unique_ptr<int[]>> pdg_control_vars_map;
+  std::map<llvm::BasicBlock *, std::unique_ptr<int[]>> pdg_exec_vars_map;
+
+  // changed as loop executed
+  std::vector<llvm::BasicBlock *> pdg_scc_to_exec;
+  std::vector<llvm::BasicBlock *>::const_iterator pdg_loopbody_to_exec_cit;
+  int pdg_status;
   int pdg_iter_cnt;
 
   /// Return the typeid corresponding to a certain `type_info`
