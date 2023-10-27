@@ -38,4 +38,4 @@ build/bin/klee zsy_test/demo2_3.ll
 [《零基础入门控制依赖图构建的理论与实践》-流霞祭司曌鹓鶵](https://zhuanlan.zhihu.com/p/658705992)  
 
 ## 5. Copyright  
-Copyright (c) 2023 By 流月城先进偃甲技术研究院-对伏羲外包国家重点实验室-流霞祭司曌鹓鶵 founded by 五色石炼制关键工艺天界自然科学基金(2022LYC12138).  All rights reserved.  
+Copyright (c) 令和5年 By 流月城先进偃甲技术研究院-对伏羲外包国家重点实验室-流霞祭司曌鹓鶵 founded by 五色石炼制关键工艺天界自然科学基金(2022LYC12138).  All rights reserved.  
