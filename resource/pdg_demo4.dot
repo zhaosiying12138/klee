@@ -1,0 +1,66 @@
+digraph G {
+    ENTRY [label="ENTRY", shape=circle];
+    S1 [label="S1", shape=circle];
+    S2 [label="S2", shape=circle];
+    S3 [label="S3", shape=circle];
+    S4 [label="S4", shape=circle];
+    S5 [label="S5", shape=circle];
+    S6 [label="S6", shape=circle];
+    S7 [label="S7", shape=circle];
+    S8 [label="S8", shape=circle];
+
+    ENTRY -> S1 [label="T"];
+    ENTRY -> S8 [label="T"];
+    S1 -> S2 [label="T"];
+    S1 -> S3 [label="F"];
+    S2 -> S3 [label="F"];
+    S2 -> S4 [label="T"];
+    S4 -> S5 [label="T"];
+    S4 -> S6 [label="F"];
+    S4 -> S7 [label="F"];
+
+    S5 -> S5 [style=dashed];
+    S5 -> S4 [style=dashed];
+    S5 -> S6 [style=dashed];
+    S5 -> S7 [style=dashed];
+    S3 -> S5 [style=dashed];
+    S3 -> S4 [style=dashed];
+    S3 -> S6 [style=dashed];
+    S3 -> S7 [style=dashed];
+    S4 -> S5 [style=dashed];
+    S4 -> S6 [style=dashed];
+    S1 -> S3 [style=dashed];
+    S6 -> S5 [style=dashed];
+    S6 -> S4 [style=dashed];
+    S6 -> S6 [style=dashed];
+    S6 -> S7 [style=dashed];
+    S2 -> S3 [style=dashed];
+    S2 -> S7 [style=dashed];
+    S7 -> S8 [style=dashed];
+
+    COND_S1_1 [label="COND_S1_1", shape=circle, color=red];
+    COND_S1_2 [label="COND_S1_2", shape=circle, color=red];
+    COND_S1_3 [label="COND_S1_3", shape=circle, color=red];
+
+    COND_S1_1 -> COND_S1_2 [style=dashed, color=darkgreen]; // WAW(ei)
+    COND_S1_1 -> COND_S1_3 [style=dashed, color=darkgreen]; // RAW(ei)
+    COND_S1_2 -> COND_S1_3 [style=dashed, color=darkgreen]; // RAW(ei)
+    COND_S1_3 -> COND_S1_1 [style=dashed, color=darkgreen]; // WAR(ei)
+    COND_S1_3 -> COND_S1_2 [style=dashed, color=darkgreen]; // WAR(ei)
+
+    ENTRY -> COND_S1_1 [label="T", color=blue]; // control_dep
+    S4 -> COND_S1_2 [label="T", color=blue]; // control_dep
+    ENTRY -> COND_S1_3 [label="T", color=blue]; // control_dep
+
+    COND_S1_3 -> S1 [style=dashed, color=darkgoldenrod3]; // carried_ctrl_dep(cond[i+1] -> cond[i])
+    COND_S1_3 -> S2 [style=dashed, color=darkgoldenrod3]; // carried_ctrl_dep(cond[i+1] -> cond[i])
+    COND_S1_3 -> S3 [style=dashed, color=darkgoldenrod3]; // carried_ctrl_dep(cond[i+1] -> cond[i])
+    COND_S1_3 -> S4 [style=dashed, color=darkgoldenrod3]; // carried_ctrl_dep(cond[i+1] -> cond[i])
+    COND_S1_3 -> COND_S1_2 [style=dashed, color=darkgoldenrod3]; // carried_ctrl_dep(cond[i+1] -> cond[i])
+    COND_S1_3 -> S5 [style=dashed, color=darkgoldenrod3]; // carried_ctrl_dep(cond[i+1] -> cond[i+1])
+    COND_S1_3 -> S6 [style=dashed, color=darkgoldenrod3]; // carried_ctrl_dep(cond[i+1] -> cond[i+1])
+    COND_S1_3 -> S7 [style=dashed, color=darkgoldenrod3]; // carried_ctrl_dep(cond[i+1] -> cond[i+1])
+    COND_S1_3 -> S8 [style=dashed, color=darkgoldenrod3]; // carried_ctrl_dep(cond[i+1] -> cond[i+1])
+
+// dot -T png pdg_demo4.dot -o pdg_demo4.png; sxiv pdg_demo4.png
+}
