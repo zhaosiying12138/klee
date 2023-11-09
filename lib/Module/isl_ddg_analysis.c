@@ -91,7 +91,8 @@ static void zsy_dep_graph_dump(struct zsy_dep_graph *dep_graph)
 	for (int i = 0; i < dep_graph->n; i++) {
 		for (int j = 0; j < dep_graph->n; j++) {
 			if (zsy_dep_graph_check_edge(dep_graph, i, j)) {
-				printf("add_edge(\"%s\", \"%s\");\n", dep_graph->node_names[i], dep_graph->node_names[j]);
+//				printf("add_edge(\"%s\", \"%s\");\n", dep_graph->node_names[i], dep_graph->node_names[j]);
+				printf("%s -> %s [style=dashed];\n", dep_graph->node_names[i], dep_graph->node_names[j]);
 			}
 		}
 	}
@@ -278,6 +279,112 @@ int zsy_pdg_calculate_ddg(isl_ctx *ctx)
 	return 0;
 }
 
+int zsy_pdg_calculate_scc(isl_ctx *ctx)
+{
+	isl_options_set_schedule_serialize_sccs(ctx, 1);
+        const char *d, *w, *r, *s, *con;
+        isl_set *CON;
+        isl_union_set *D;
+        isl_union_map *W, *R, *S, *schedule;
+        isl_union_map *empty;
+        isl_union_map *dep_raw, *dep_war, *dep_waw, *dep, *dep_rev;
+        isl_union_map *validity;
+        isl_union_map *proximity, *coincidence;
+        isl_schedule_constraints *sc;
+        isl_schedule *sched;
+        isl_ast_build *build;
+        isl_ast_node *tree;
+
+        con = "{ : }";
+#if 0
+	d = "[N] -> { S1[i] : 0 <= i < N; S2[i] : 0 <= i < N; S3[i] : 0 <= i < N; S4[i] : 0 <= i < N; "
+                " S5[i] : 0 <= i < N; S6[i] : 0 <= i < N; S7[i] : 0 <= i < N; S8[i] : 0 <= i < N; "
+		" ENTRY[i] : 0 <= i < N; }";
+        w = "[N] -> { S3[i] -> A[i]; S5[i] -> T[]; S6[i] -> T[]; S7[i] -> B[i]; S8[i] -> C[i]; "
+		" ENTRY[i] -> ctrl_dep0[i]; S1[i] -> ctrl_dep1[i]; S2[i] -> ctrl_dep2[i]; S4[i] -> ctrl_dep4[i]; }";
+        r = "[N] -> { S1[i] -> A[i]; S2[i] -> A[i]; S2[i] -> B[i]; S3[i] -> B[i]; S4[i] -> A[i]; S4[i] -> T[]; "
+                " S5[i] -> A[i]; S5[i] -> B[i]; S5[i] -> T[]; S6[i] -> A[i]; S6[i] -> B[i]; S6[i] -> T[]; "
+                " S7[i] -> A[i]; S8[i] -> B[i]; S8[i] -> C[i]; "
+		" S2[i] -> ctrl_dep1[i]; S3[i] -> ctrl_dep1[i]; S3[i] -> ctrl_dep2[i]; S4[i] -> ctrl_dep2[i]; "
+		" S5[i] -> ctrl_dep4[i]; S6[i] -> ctrl_dep4[i]; S7[i] -> ctrl_dep4[i]; "
+		" S1[i] -> ctrl_dep0[i]; S8[i] -> ctrl_dep0[i]; }";
+        s = "[N] -> { S1[i] -> [0, i, 1]; S2[i] -> [0, i, 2]; S3[i] -> [0, i, 3]; S4[i] -> [0, i, 4]; "
+                " S5[i] -> [0, i, 5]; S6[i] -> [0, i, 6]; S7[i] -> [0, i, 7]; S8[i] -> [0, i, 8]; "
+		" ENTRY[i] -> [0, i, 0]; }";
+#endif
+#if 1
+	d = "[N] -> { S1[i] : 0 <= i < N; S2[i] : 0 <= i < N; S3[i] : 0 <= i < N; S4[i] : 0 <= i < N; "
+                " S5[i] : 0 <= i < N; S6[i] : 0 <= i < N; S7[i] : 0 <= i < N; S8[i] : 0 <= i < N; "
+                " ENTRY[i] : 0 <= i < N; "
+		" COND_S1_1[i] : 0 <= i < N; COND_S1_2[i] : 0 <= i < N; COND_S1_3[i] : 0 <= i < N; }";
+        w = "[N] -> { S3[i] -> A[i]; S5[i] -> T[]; S6[i] -> T[]; S7[i] -> B[i]; S8[i] -> C[i]; "
+                " ENTRY[i] -> ctrl_dep0[i]; S1[i] -> ctrl_dep1[i]; S2[i] -> ctrl_dep2[i]; S4[i] -> ctrl_dep4[i]; "
+		" COND_S1_1[i] -> ei[]; COND_S1_2[i] -> ei[]; COND_S1_3[i] -> cond[i + 1]; }";
+        r = "[N] -> { S1[i] -> A[i]; S2[i] -> A[i]; S2[i] -> B[i]; S3[i] -> B[i]; S4[i] -> A[i]; S4[i] -> T[]; "
+                " S5[i] -> A[i]; S5[i] -> B[i]; S5[i] -> T[]; S6[i] -> A[i]; S6[i] -> B[i]; S6[i] -> T[]; "
+                " S7[i] -> A[i]; S8[i] -> B[i]; S8[i] -> C[i]; "
+                " S2[i] -> ctrl_dep1[i]; S3[i] -> ctrl_dep1[i]; S3[i] -> ctrl_dep2[i]; S4[i] -> ctrl_dep2[i]; "
+                " S5[i] -> ctrl_dep4[i]; S6[i] -> ctrl_dep4[i]; S7[i] -> ctrl_dep4[i]; "
+                " S1[i] -> ctrl_dep0[i]; S8[i] -> ctrl_dep0[i]; "
+		" COND_S1_3[i] -> cond[i]; COND_S1_3[i] -> ei[]; "
+		" COND_S1_1[i] -> ctrl_dep0[i]; COND_S1_2[i] -> ctrl_dep4[i]; COND_S1_3[i] -> ctrl_dep0[i]; "
+		" S1[i] -> cond[i]; S2[i] -> cond[i]; S3[i] -> cond[i]; S4[i] -> cond[i]; "
+		" COND_S1_2[i] -> cond[i]; "
+//		" COND_S1_2[i] -> C[i - 1]; "
+		" S5[i] -> cond[i + 1]; S6[i] -> cond[i + 1]; S7[i] -> cond[i + 1]; S8[i] -> cond[i + 1]; }";
+        s = "[N] -> { S1[i] -> [0, i, 1]; S2[i] -> [0, i, 2]; S3[i] -> [0, i, 3]; S4[i] -> [0, i, 4]; "
+                " S5[i] -> [0, i, 8]; S6[i] -> [0, i, 9]; S7[i] -> [0, i, 10]; S8[i] -> [0, i, 11]; "
+                " ENTRY[i] -> [0, i, 0]; COND_S1_1[i] -> [0, i, 5]; COND_S1_2[i] -> [0, i, 6]; COND_S1_3[i] -> [0, i, 7]; }";
+#endif
+
+        printf("\nCompute schedule:\n");
+        CON = isl_set_read_from_str(ctx, con);
+        D = isl_union_set_read_from_str(ctx, d);
+        W = isl_union_map_read_from_str(ctx, w);
+        R = isl_union_map_read_from_str(ctx, r);
+        S = isl_union_map_read_from_str(ctx, s);
+
+        W = isl_union_map_intersect_domain(W, isl_union_set_copy(D));
+        R = isl_union_map_intersect_domain(R, isl_union_set_copy(D));
+        S = isl_union_map_intersect_domain(S, isl_union_set_copy(D));
+
+        empty = isl_union_map_empty(isl_union_map_get_space(S));
+        isl_union_map_compute_flow(isl_union_map_copy(R),
+                                   isl_union_map_copy(W), isl_union_map_copy(empty),
+                                   isl_union_map_copy(S),
+                                   &dep_raw, NULL, NULL, NULL);
+        isl_union_map_compute_flow(isl_union_map_copy(W),
+                                   isl_union_map_copy(W), isl_union_map_copy(empty),
+                                   isl_union_map_copy(S),
+                                   &dep_waw, NULL, NULL, NULL);
+        isl_union_map_compute_flow(isl_union_map_copy(W),
+                                   isl_union_map_copy(R), isl_union_map_copy(empty),
+                                   isl_union_map_copy(S),
+                                   &dep_war, NULL, NULL, NULL);
+        dep = isl_union_map_union(isl_union_map_copy(dep_waw), isl_union_map_copy(dep_war));
+        dep = isl_union_map_union(dep, isl_union_map_copy(dep_raw));
+
+        validity = isl_union_map_copy(dep);
+        coincidence = isl_union_map_copy(dep);
+        proximity = isl_union_map_copy(dep);
+
+        sc = isl_schedule_constraints_on_domain(isl_union_set_copy(D));
+        sc = isl_schedule_constraints_set_context(sc, CON);
+        sc = isl_schedule_constraints_set_validity(sc, validity);
+        sc = isl_schedule_constraints_set_coincidence(sc, coincidence);
+        sc = isl_schedule_constraints_set_proximity(sc, proximity);
+        sched = isl_schedule_constraints_compute_schedule(sc);
+        isl_schedule_dump(sched);
+        schedule = isl_schedule_get_map(sched);
+        schedule = isl_union_map_intersect_domain(schedule, D);
+        build = isl_ast_build_from_context(isl_set_read_from_str(ctx, con));
+        tree = isl_ast_build_node_from_schedule_map(build, schedule);
+        printf("%s\n", isl_ast_node_to_C_str(tree));
+
+        return 0;
+
+}
+
 int main(int argc, char **argv)
 {
 	int i;
@@ -292,6 +399,7 @@ int main(int argc, char **argv)
 	printf("PDG-AutoVectorization Demo written by zhaosiying12138@Institute of Advanced YanJia"
 				" Technology, LiuYueCity Academy of Science\n");
 	zsy_pdg_calculate_ddg(ctx);
+	zsy_pdg_calculate_scc(ctx);
 
 	isl_ctx_free(ctx);
 	return 0;
