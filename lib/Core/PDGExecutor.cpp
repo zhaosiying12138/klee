@@ -86,7 +86,7 @@ void Executor::pdg_executeInstruction(ExecutionState &state, KInstruction *ki) {
   } else if (pdg_status == 2) {
       // i->dump();
       if (i->getParent() == pdg_loopinfo.exit) {
-        outs() << "[ZSY_Executor] loop [EXIT]!\n";
+        // outs() << "[ZSY_Executor] loop [EXIT]!\n";
         if (pdg_scc_to_exec.empty()) {
           pdg_ITER_CNTS = pdg_iter_cnt - 1;
           outs() << "Total loop iteration cnts: " << pdg_ITER_CNTS << "\n";
@@ -124,7 +124,7 @@ void Executor::pdg_executeInstruction(ExecutionState &state, KInstruction *ki) {
             outs() << print_array(tmp_cdgNode_bb_control_vars, std::function([](int e) { return std::to_string(e); })) << "\n";
             cal_exec_vars(tmp_exec_vars.get(), tmp_cdgNode_bb_control_vars, tmp_cdgNode.flag);
           }
-          outs() << scc_entry_bb->getNameOrAsOperand() << " の Exec_variables: " << print_arr(tmp_exec_vars.get()) << "\n";
+          // outs() << scc_entry_bb->getNameOrAsOperand() << " の Exec_variables: " << print_arr(tmp_exec_vars.get()) << "\n";
           pdg_exec_vars_map.insert({scc_entry_bb, std::move(tmp_exec_vars)});
           for (size_t i = 1; i != pdg_scc_to_exec.size(); ++i) {
             pdg_exec_vars_map.insert({pdg_scc_to_exec[i],
@@ -159,8 +159,8 @@ void Executor::pdg_executeInstruction(ExecutionState &state, KInstruction *ki) {
       }
       (pdg_exec_vars_map[curr_bb])[pdg_iter_cnt - 1] = is_exec;
     }
-    outs() << "[ZSY_Executor] loop body: " << curr_bb->getNameOrAsOperand();
-    outs() << (is_exec ? " to run!" : " SKIP!") << "\n";
+    // outs() << "[ZSY_Executor] loop body: " << curr_bb->getNameOrAsOperand();
+    // outs() << (is_exec ? " to run!" : " SKIP!") << "\n";
 
     if (!is_exec) {
       ++pdg_loopbody_to_exec_cit;
@@ -289,7 +289,8 @@ void Executor::pdg_executeInstruction(ExecutionState &state, KInstruction *ki) {
         } else {
           next_bb_to_exec = pdg_scc_to_exec[0];
         }
-        outs() << "[ZSY_Executor] loop header " << ++pdg_iter_cnt << " time(s)!\n";
+        ++pdg_iter_cnt;
+        // outs() << "[ZSY_Executor] loop header " << pdg_iter_cnt << " time(s)!\n";
         BranchInst *bi = cast<BranchInst>(i);
         assert(bi->isConditional());
         ref<Expr> cond = eval(ki, 0, state).value;
@@ -316,16 +317,12 @@ void Executor::pdg_executeInstruction(ExecutionState &state, KInstruction *ki) {
           transferToBasicBlock(successors[1], bi->getParent(), state);
         }
       }
-      //  else if (i->getParent() == pdg_basicblock_to_exec) {
-      //   outs() << "[ZSY_Executor] loop body!\n";
-      //   transferToBasicBlock(pdg_loopinfo.latch, pdg_basicblock_to_exec, state);
-      // } 
       else if (i->getParent() == pdg_loopinfo.latch) {
-        outs() << "[ZSY_Executor] loop latch!\n";
+        // outs() << "[ZSY_Executor] loop latch!\n";
         transferToBasicBlock(pdg_loopinfo.header, pdg_loopinfo.latch, state);
       } else {
         BasicBlock *curr_bb = *pdg_loopbody_to_exec_cit;
-        outs() << "[ZSY_Executor] loop body: " << curr_bb->getNameOrAsOperand() << " ends!\n";
+        // outs() << "[ZSY_Executor] loop body: " << curr_bb->getNameOrAsOperand() << " ends!\n";
         BranchInst *bi = cast<BranchInst>(i);
         if (bi->isConditional()) {
           if (pdg_iter_cnt == 1) {
